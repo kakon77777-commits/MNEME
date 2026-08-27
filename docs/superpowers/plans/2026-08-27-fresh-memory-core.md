@@ -105,7 +105,7 @@ head_digest = sha256(
 - Produces: `CanonicalizationError(ValueError)`
 - Later tasks consume these exact helpers for every digest and canonical file payload.
 
-- [ ] **Step 1: Write the failing canonicalization tests**
+- [x] **Step 1: Write the failing canonicalization tests**
 
 ```python
 # tests/test_canonical.py
@@ -134,7 +134,7 @@ def test_domain_hash_changes_when_domain_changes():
     assert sha256_domain(b"A", payload) != sha256_domain(b"B", payload)
 ```
 
-- [ ] **Step 2: Run the tests and verify RED**
+- [x] **Step 2: Run the tests and verify RED**
 
 Run:
 
@@ -144,7 +144,7 @@ python -m pytest tests/test_canonical.py -q
 
 Expected: collection/import failure because `mneme.canonical` does not exist yet.
 
-- [ ] **Step 3: Add the minimal package and canonical helpers**
+- [x] **Step 3: Add the minimal package and canonical helpers**
 
 ```python
 # src/mneme/errors.py
@@ -191,7 +191,7 @@ __version__ = "0.1.0a1"
 
 `pyproject.toml` must declare Python `>=3.11`, package discovery from `src`, runtime dependency `jsonschema>=4.23`, and dev extra `pytest>=8.0`.
 
-- [ ] **Step 4: Run the focused tests and verify GREEN**
+- [x] **Step 4: Run the focused tests and verify GREEN**
 
 ```bash
 python -m pytest tests/test_canonical.py -q
@@ -199,7 +199,7 @@ python -m pytest tests/test_canonical.py -q
 
 Expected: `3 passed`.
 
-- [ ] **Step 5: Commit Task 1**
+- [x] **Step 5: Commit Task 1**
 
 ```bash
 git add pyproject.toml src/mneme tests/test_canonical.py
