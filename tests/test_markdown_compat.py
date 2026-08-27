@@ -35,6 +35,7 @@ def test_profiled_import_maps_only_explicit_sections_and_preserves_source(tmp_pa
 
     reasons = {entry["reason"] for entry in proposal.loss_report["loss"]}
     assert "no_active_section" in reasons
+    assert "unknown_heading" in reasons
     assert "block_kind_not_mapped" in reasons
     assert "unknown_section" in reasons
     assert "unsupported_block_kind" in reasons
@@ -158,3 +159,20 @@ def test_profiled_import_store_projection_reimport_roundtrip(tmp_path: Path):
 
     assert compatibility_entries(original_records) == compatibility_entries(reimported_records)
     assert [r.to_dict()["record_id"] for r in original_records] != [r.to_dict()["record_id"] for r in reimported_records]
+
+
+def test_unknown_heading_itself_is_explicit_loss_even_without_body(tmp_path: Path):
+    source = tmp_path / "MEMORY.md"
+    source.write_text(
+        "## Unknown Empty Section\n\n"
+        "## Standing instructions\n"
+        "- Keep exact state.\n",
+        encoding="utf-8",
+    )
+    profile = load_builtin_evemiss_profile()
+    proposal = propose_profiled_markdown_import(source, profile)
+    heading_losses = [item for item in proposal.loss_report["loss"] if item["reason"] == "unknown_heading"]
+    assert heading_losses == [
+        {"kind": "heading", "reason": "unknown_heading", "start_line": 1, "end_line": 1}
+    ]
+    assert len(proposal.records) == 1
