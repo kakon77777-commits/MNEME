@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://evemisslab.com/mneme/schemas/transaction-0.1.schema.json",
+  "title": "MNEME TransactionProposal 0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["transaction_version", "transaction_id", "expected_source_head", "declared_record_count", "record_digests", "records", "authority_ref", "commit_marker"],
+  "properties": {
+    "transaction_version": {"const": "mneme.transaction/0.1"},
+    "transaction_id": {"type": "string", "minLength": 1},
+    "expected_source_head": {"type": "string", "pattern": "^(GENESIS|[0-9a-f]{64})$"},
+    "declared_record_count": {"type": "integer", "minimum": 0},
+    "record_digests": {"type": "array", "items": {"type": "string", "pattern": "^[0-9a-f]{64}$"}},
+    "records": {"type": "array", "items": {"type": "object"}},
+    "authority_ref": {"type": "string", "minLength": 1},
+    "commit_marker": {"const": "MNEME_COMMIT/0.1"}
+  }
+}
