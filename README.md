@@ -10,15 +10,9 @@ MNEME separates persistent AI memory from bounded model context and human-readab
 
 ## Why MNEME
 
-A monolithic Markdown memory file can simultaneously become:
+A monolithic Markdown memory file can simultaneously become a canonical store, index, host bootstrap input, LLM write target, and human-readable document. Those roles have different safety requirements. A host may load only a bounded prefix, an LLM generation may terminate before a rewrite is complete, and a syntactically valid Markdown document can still be semantically truncated.
 
-- a canonical store;
-- an index;
-- a host bootstrap input;
-- an LLM write target; and
-- a human-readable document.
-
-Those roles have different safety requirements. A host may load only a bounded prefix, an LLM generation may terminate before a rewrite is complete, and a syntactically valid Markdown document can still be semantically truncated. MNEME therefore moves canonical memory to bounded, independently validatable records and treats Markdown as a rebuildable projection.
+MNEME therefore moves canonical memory to bounded, independently validatable records and treats Markdown as a rebuildable projection.
 
 ## System position
 
@@ -62,23 +56,41 @@ MODEL CONTEXT BUDGET != MEMORY CAPACITY
 STORAGE BACKEND != MEMORY SEMANTICS
 ```
 
-## MLF-RM v0.1 direction
+## Fresh Memory Core v0.1
 
-The initial file-first package is expected to contain typed memory records, relation/dependency graphs, routes, provenance events, projection metadata, checksums, and transaction receipts. A human-facing `MEMORY.md` may still be generated, but it is an output of the memory state rather than the memory state itself.
+The current implementation candidate provides:
 
-The design intentionally keeps the storage contract backend-neutral so a future dynamic database can implement the same record/route/transaction semantics without redefining MNEME.
+- deterministic canonical UTF-8 JSON bytes and domain-separated hashes;
+- typed `MemoryRecord` validation for MLF-RM/0.1;
+- complete transaction envelopes with exact commit marker, count, digest, and expected-head checks;
+- file-first immutable committed transactions plus exact causal `HEAD` and receipts;
+- idempotent current-head replay and stale-head rejection;
+- auditable global/identity/project route filtering with explicit omission reasons;
+- whole-record hard-budget Markdown/model projections with exact content hashes;
+- non-destructive Markdown import proposals with explicit uncertain/unmapped loss accounting;
+- a read-only SOACR-facing materialization adapter;
+- an A0-A6 synthetic acceptance gate with injected negative controls.
 
-## Safety model
+A human-facing `MEMORY.md` may still be generated, but it is an output of canonical memory rather than canonical memory itself.
 
-A memory write is accepted only as a complete transaction. Incomplete or truncated model output must fail closed and produce no canonical commit. Projections are budgeted outputs and may be regenerated at different sizes without deleting canonical records.
+## Verification
 
-## Status
+Python 3.11+:
 
-**v0.1 architecture/design baseline.** No production Residence migration, real private-memory activation, autonomous background service, or production write authority is claimed.
+```bash
+python -m pip install -e ".[dev]"
+python -m pytest -q
+python scripts/validate_fresh_memory_core.py --output fresh-memory-core.json
+```
 
-Start with:
+The acceptance runner is local, deterministic, synthetic, and network-free. A valid result reports `profile: MLF-RM/0.1`, `status: PASS`, A0-A6 all `PASS`, a canonical head, and the injected control count.
+
+This evidence is **not** production Residence activation and grants **no production Residence write authority**. Real Residence migration, live LIMEN authorization, dynamic-database backends, vector routing, federation, and full SOACR writeback remain outside v0.1 Fresh Memory Core.
+
+## Design and plan
 
 - [`docs/superpowers/specs/2026-08-27-mneme-v0.1-design.md`](docs/superpowers/specs/2026-08-27-mneme-v0.1-design.md)
+- [`docs/superpowers/plans/2026-08-27-fresh-memory-core.md`](docs/superpowers/plans/2026-08-27-fresh-memory-core.md)
 
 ## Related repositories
 
@@ -93,4 +105,4 @@ Start with:
 - Repository: `kakon77777-commits/MNEME`
 - Project name: **MNEME**
 - Initial profile: **MLF-RM v0.1**
-- Current phase: architecture baseline
+- Current phase: **Fresh Memory Core implementation candidate**
