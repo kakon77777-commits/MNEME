@@ -1,0 +1,40 @@
+{
+  "experiment": "MNEME-v0.1-markdown-roundtrip",
+  "profile": "MLF-RM/0.1",
+  "status": "PASS",
+  "private_real_world_sample": {
+    "source_committed": false,
+    "source_bytes": 9715,
+    "mapped_count": 0,
+    "uncertain_count": 53,
+    "unmapped_count": 10,
+    "source_unchanged": true
+  },
+  "synthetic_oversize_sample": {
+    "source_bytes": 57066,
+    "reference_boundary_bytes": 24986,
+    "mapped_records": 320,
+    "canonical_committed_records": 320,
+    "canonical_head": "ea843b2948015255a5d98e99d6c5a10ca294855540d5cd238309f5f7eef0ed1d",
+    "source_unchanged": true
+  },
+  "bounded_projection": {
+    "byte_budget": 20000,
+    "actual_bytes": 19853,
+    "included_records": 91,
+    "omitted_records": 229
+  },
+  "large_projection": {
+    "byte_budget": 200000,
+    "actual_bytes": 70000,
+    "included_records": 320,
+    "omitted_records": 0
+  },
+  "assertions": {
+    "oversize_boundary_exercised": true,
+    "bounded_projection_within_budget": true,
+    "canonical_memory_preserved": true,
+    "same_canonical_head_across_projections": true,
+    "private_source_not_published": true
+  }
+}
