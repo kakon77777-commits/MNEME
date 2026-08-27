@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://evemisslab.com/mneme/schemas/projection-manifest-0.1.schema.json",
+  "title": "MNEME Projection Manifest 0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["manifest_version", "source_head", "route_id", "byte_budget", "included_ids", "omitted", "content_sha256", "byte_count"],
+  "properties": {
+    "manifest_version": {"const": "mneme.projection-manifest/0.1"},
+    "source_head": {"type": "string", "minLength": 1},
+    "route_id": {"type": "string", "pattern": "^route://.+$"},
+    "byte_budget": {"type": "integer", "minimum": 1},
+    "included_ids": {"type": "array", "items": {"type": "string"}},
+    "omitted": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["record_id", "reason"],
+        "properties": {
+          "record_id": {"type": "string"},
+          "reason": {"type": "string"}
+        }
+      }
+    },
+    "content_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "byte_count": {"type": "integer", "minimum": 0}
+  }
+}
