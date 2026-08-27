@@ -28,3 +28,7 @@ class RouteValidationError(MnemeError, ValueError):
 
 class ProjectionBudgetError(MnemeError, ValueError):
     """A projection cannot satisfy its hard materialization budget."""
+
+
+class ProfileValidationError(MnemeError, ValueError):
+    """A memory Markdown compatibility profile is invalid or ambiguous."""

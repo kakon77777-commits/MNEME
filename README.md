@@ -6,23 +6,17 @@
 >
 > Markdown is a projection. Canonical memory is a validated state of typed records, routes, provenance, and commits.
 
-MNEME separates persistent AI memory from bounded model context and human-readable Markdown. Its first profile, **MLF-RM (Matrix Ledger Format — Residence Memory Profile)**, adapts the structural-first ideas of EveMissLab's 3M work to AI memory: preserve canonical structure first, then materialize human, model, graph, and runtime views as projections.
-
-## Why MNEME
-
-A monolithic Markdown memory file can simultaneously become a canonical store, index, host bootstrap input, LLM write target, and human-readable document. Those roles have different safety requirements. A host may load only a bounded prefix, an LLM generation may terminate before a rewrite is complete, and a syntactically valid Markdown document can still be semantically truncated.
-
-MNEME therefore moves canonical memory to bounded, independently validatable records and treats Markdown as a rebuildable projection.
+MNEME separates persistent AI memory from bounded model context and human-readable Markdown. Its canonical memory profile is **MLF-RM/0.1**. The next compatibility layer, **MNEME-MD/0.1**, migrates explicitly declared `MEMORY.md` conventions without allowing Markdown layout or model guesses to become canonical truth.
 
 ## System position
 
 ```text
 SEDB-RAL
-  canonical residency / identity evidence
+  residency / identity evidence
         |
         v
 LIMEN
-  host observation / identity resolution / authorization
+  identity resolution / authorization
         |
         v
 AI Residence
@@ -34,13 +28,11 @@ MNEME
         |
         v
 SOACR
-  MemoryNeed / provider routing / reconstruction / continuation
+  MemoryNeed / reconstruction / continuation
         |
         v
 Working Context
 ```
-
-MNEME does not replace SEDB-RAL, LIMEN, AI Residence, SOACR, SEDB, MLF, or MMLC. It defines the canonical memory layer and the contracts that let those systems interoperate without collapsing identity, authority, memory, and context into one object.
 
 ## Core invariants
 
@@ -53,25 +45,60 @@ READ AUTHORITY != WRITE AUTHORITY
 PROPOSAL != COMMIT
 PARTIAL OUTPUT != VALID TRANSACTION
 MODEL CONTEXT BUDGET != MEMORY CAPACITY
-STORAGE BACKEND != MEMORY SEMANTICS
+COMPATIBILITY PROFILE != CANONICAL MEMORY FORMAT
 ```
 
-## Fresh Memory Core v0.1
+## Fresh Memory Core — MLF-RM/0.1
 
-The current implementation candidate provides:
+The Fresh Memory Core provides deterministic canonical UTF-8 JSON, typed `MemoryRecord` validation, complete transaction envelopes, an immutable exact-head file-first store, scoped routes, hard-budget whole-record projections, a conservative legacy Markdown importer, and a read-only SOACR-facing adapter.
 
-- deterministic canonical UTF-8 JSON bytes and domain-separated hashes;
-- typed `MemoryRecord` validation for MLF-RM/0.1;
-- complete transaction envelopes with exact commit marker, count, digest, and expected-head checks;
-- file-first immutable committed transactions plus exact causal `HEAD` and receipts;
-- idempotent current-head replay and stale-head rejection;
-- auditable global/identity/project route filtering with explicit omission reasons;
-- whole-record hard-budget Markdown/model projections with exact content hashes;
-- non-destructive Markdown import proposals with explicit uncertain/unmapped loss accounting;
-- a read-only SOACR-facing materialization adapter;
-- an A0-A6 synthetic acceptance gate with injected negative controls.
+Its A0-A6 gate includes corrupted/truncation/stale-head/scope-leak controls. It is synthetic/local evidence and grants no production Residence write authority.
 
-A human-facing `MEMORY.md` may still be generated, but it is an output of canonical memory rather than canonical memory itself.
+## Memory Markdown Compatibility — MNEME-MD/0.1
+
+MNEME-MD adds a versioned compatibility profile above MLF-RM. A Markdown heading has mapping meaning only when the selected profile declares an exact alias.
+
+```text
+existing MEMORY.md
+→ exact profile match
+→ typed MemoryRecord proposals
+→ section-membership relation + mapping receipt
+→ explicit loss report
+→ MNEME transaction/store
+→ profile-aware bounded MEMORY.md projection
+```
+
+### No semantic guessing
+
+Heading matching uses NFC normalization, whitespace collapse, and Unicode casefold only. Punctuation is preserved. There is no fuzzy matching, embedding classification, synonym guessing, or LLM classification.
+
+Unknown sections and unsupported blocks remain explicit loss rather than being silently converted.
+
+### Built-in EveMiss Residence profile
+
+The initial built-in profile contains only section names already observed in prior memory-design evidence:
+
+| Section | Record | Scope |
+|---|---|---|
+| `Standing instructions` | `instruction` | `global/core` |
+| `Verification lessons` | `lesson` | `global/verification` |
+| `Who / how we work` | `instruction` | `global/collaboration` |
+| `Named Identities` | `fact` | `global/identity_registry` |
+| `This machine` | `fact` | `global/machine` |
+
+`Named Identities` intentionally remains a fact registry. A display label in Markdown never mints or resolves a resident identity.
+
+The profile format supports arbitrary Unicode aliases, including Traditional Chinese, but a particular real-world alias is built in only when there is evidence that it is actually used with that meaning.
+
+### Round-trip compatibility
+
+Profile-aware projection renders a standardized bounded `MEMORY.md` view. Re-import compatibility compares ordered tuples:
+
+```text
+(section_id, record_type, scope.kind, scope.subject, content.text)
+```
+
+This proves compatibility semantics without pretending source-dependent canonical record IDs must be byte-identical after projection/re-import.
 
 ## Verification
 
@@ -81,28 +108,29 @@ Python 3.11+:
 python -m pip install -e ".[dev]"
 python -m pytest -q
 python scripts/validate_fresh_memory_core.py --output fresh-memory-core.json
+python scripts/validate_memory_markdown_profile.py --output memory-markdown-profile.json
+python -m compileall -q src
 ```
 
-The acceptance runner is local, deterministic, synthetic, and network-free. A valid result reports `profile: MLF-RM/0.1`, `status: PASS`, A0-A6 all `PASS`, a canonical head, and the injected control count.
+A successful MNEME-MD gate reports `profile: MNEME-MD/0.1`, M0-M8 all `PASS`, an exact built-in profile digest, a canonical head for the synthetic round-trip, and negative-control evidence.
 
-This evidence is **not** production Residence activation and grants **no production Residence write authority**. Real Residence migration, live LIMEN authorization, dynamic-database backends, vector routing, federation, and full SOACR writeback remain outside v0.1 Fresh Memory Core.
+## Safety boundary
 
-## Design and plan
+The public repository uses synthetic Markdown only. Real private Residence `MEMORY.md` files, local private paths, resident lists, and private source digests are not committed.
 
-- [`docs/superpowers/specs/2026-08-27-mneme-v0.1-design.md`](docs/superpowers/specs/2026-08-27-mneme-v0.1-design.md)
-- [`docs/superpowers/plans/2026-08-27-fresh-memory-core.md`](docs/superpowers/plans/2026-08-27-fresh-memory-core.md)
+Current work does not implement live LIMEN authorization, real Residence migration, a dynamic database backend, vector routing, federation, or autonomous background writeback.
 
-## Related repositories
+## Design and plans
 
-- SEDB-RAL — residency and attestation ledger
-- LIMEN — identity mediation and access boundary
-- SOACR — self-orienting context-memory runtime
-- MLF — Matrix Ledger Format
-- MMLC — Multidirectional Matrix Ledger Computation Runtime
+- `docs/superpowers/specs/2026-08-27-mneme-v0.1-design.md`
+- `docs/superpowers/plans/2026-08-27-fresh-memory-core.md`
+- `docs/superpowers/specs/2026-08-27-memory-markdown-compatibility-profile-design.md`
+- `docs/superpowers/plans/2026-08-27-memory-markdown-compatibility-profile.md`
 
 ## Repository identity
 
 - Repository: `kakon77777-commits/MNEME`
-- Project name: **MNEME**
-- Initial profile: **MLF-RM v0.1**
-- Current phase: **Fresh Memory Core implementation candidate**
+- Package: `mneme-memory`
+- Candidate package version: `0.2.0a1`
+- Canonical memory profile: `MLF-RM/0.1`
+- Markdown compatibility profile: `MNEME-MD/0.1`

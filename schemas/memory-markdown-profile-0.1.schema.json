@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://evemisslab.com/mneme/schemas/memory-markdown-profile-0.1.schema.json",
+  "title": "MNEME Memory Markdown Profile 0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["profile_version", "profile_id", "title", "sections"],
+  "properties": {
+    "profile_version": {"const": "mneme.memory-markdown-profile/0.1"},
+    "profile_id": {"type": "string", "minLength": 1},
+    "title": {"type": "string", "minLength": 1},
+    "sections": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["section_id", "aliases", "render_heading", "scope", "block_rules", "route_hints"],
+        "properties": {
+          "section_id": {"type": "string", "minLength": 1},
+          "aliases": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+          "render_heading": {"type": "string", "minLength": 1},
+          "scope": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["kind", "subject"],
+            "properties": {
+              "kind": {"enum": ["global", "identity", "project", "task", "method"]},
+              "subject": {"type": "string", "minLength": 1}
+            }
+          },
+          "block_rules": {
+            "type": "object",
+            "minProperties": 1,
+            "additionalProperties": false,
+            "properties": {
+              "unordered_list_item": {"enum": ["identity", "instruction", "fact", "lesson", "episode", "project", "relation", "current"]},
+              "paragraph": {"enum": ["identity", "instruction", "fact", "lesson", "episode", "project", "relation", "current"]}
+            }
+          },
+          "route_hints": {"type": "array", "items": {"type": "string", "pattern": "^route://.+$"}}
+        }
+      }
+    }
+  }
+}
