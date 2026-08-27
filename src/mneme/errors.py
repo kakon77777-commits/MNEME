@@ -8,3 +8,7 @@ class CanonicalizationError(MnemeError, ValueError):
 
 class RecordValidationError(MnemeError, ValueError):
     """A memory record violates the MLF-RM/0.1 contract."""
+
+
+class TransactionValidationError(MnemeError, ValueError):
+    """A transaction is incomplete, stale, or inconsistent."""
