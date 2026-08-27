@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://evemisslab.com/mneme/schemas/memory-record-0.1.schema.json",
+  "title": "MNEME MemoryRecord 0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["record_version", "record_id", "record_type", "scope", "content", "relations", "provenance", "status"],
+  "properties": {
+    "record_version": {"const": "mneme.memory-record/0.1"},
+    "record_id": {"type": "string", "minLength": 1},
+    "record_type": {"enum": ["identity", "instruction", "fact", "lesson", "episode", "project", "relation", "current"]},
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "subject"],
+      "properties": {
+        "kind": {"enum": ["global", "identity", "project", "task", "method"]},
+        "subject": {"type": "string", "minLength": 1}
+      }
+    },
+    "content": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["text"],
+      "properties": {"text": {"type": "string"}}
+    },
+    "relations": {"type": "array", "items": {"type": "object"}},
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["event_id", "source_ref"],
+      "properties": {
+        "event_id": {"type": "string", "minLength": 1},
+        "source_ref": {"type": "string", "minLength": 1}
+      }
+    },
+    "status": {"enum": ["active", "superseded", "withdrawn", "tombstoned"]}
+  }
+}
