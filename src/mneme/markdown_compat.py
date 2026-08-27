@@ -53,6 +53,7 @@ def propose_profiled_markdown_import(path: Path, profile: MemoryMarkdownProfile)
             if matched is None:
                 active_rule = None
                 active_heading_state = "unknown"
+                loss.append(_loss(block, "unknown_heading"))
             else:
                 active_rule = matched
                 active_heading_state = "known"
