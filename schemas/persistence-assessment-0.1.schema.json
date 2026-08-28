@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://evemisslab.com/mneme/schemas/persistence-assessment-0.1.schema.json",
+  "title": "MNEME CPS PersistenceAssessment 0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "assessment_version", "assessment_id", "subject_refs", "candidate", "basis",
+    "required_preservations", "risk", "review_state", "authority"
+  ],
+  "properties": {
+    "assessment_version": {"const": "mneme.persistence-assessment/0.1"},
+    "assessment_id": {"type": "string", "minLength": 1},
+    "subject_refs": {
+      "type": "array", "minItems": 1, "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "candidate": {
+      "enum": ["PRESERVE", "STRUCTURALIZE", "GENERATIZE", "RECOMPUTE", "DISCARD", "UNKNOWN"]
+    },
+    "basis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["method", "deterministic", "reason_codes", "evidence_refs"],
+      "properties": {
+        "method": {"enum": ["EXPLICIT_RULE", "STRUCTURAL_RULE", "MODEL_PROPOSAL", "HUMAN_REVIEW"]},
+        "deterministic": {"type": "boolean"},
+        "reason_codes": {
+          "type": "array", "minItems": 1, "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "evidence_refs": {
+          "type": "array", "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "required_preservations": {
+      "type": "array", "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "risk": {"enum": ["LOW", "MEDIUM", "HIGH", "BLOCKED"]},
+    "review_state": {"enum": ["UNREVIEWED", "ACCEPTED_FOR_EXPERIMENT", "REJECTED", "SUPERSEDED"]},
+    "authority": {"const": false}
+  }
+}

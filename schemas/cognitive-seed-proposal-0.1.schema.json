@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://evemisslab.com/mneme/schemas/cognitive-seed-proposal-0.1.schema.json",
+  "title": "MNEME CPS CognitiveSeedProposal 0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "seed_version", "seed_id", "source_factorization", "anchors", "structure",
+    "generators", "obligations", "provenance_refs", "recomputation_refs",
+    "unresolved_components", "equivalence_contract", "seed_fingerprint", "authority"
+  ],
+  "properties": {
+    "seed_version": {"const": "mneme.cognitive-seed-proposal/0.1"},
+    "seed_id": {"type": "string", "minLength": 1},
+    "source_factorization": {"type": "string", "minLength": 1},
+    "anchors": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "structure": {"type": "array", "items": {"type": "object", "minProperties": 1}},
+    "generators": {"type": "array", "items": {"type": "object", "minProperties": 1}},
+    "obligations": {"type": "array", "items": {"type": "object", "minProperties": 1}},
+    "provenance_refs": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "recomputation_refs": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "unresolved_components": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "equivalence_contract": {"type": ["string", "null"], "minLength": 1},
+    "seed_fingerprint": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "authority": {"const": false}
+  }
+}

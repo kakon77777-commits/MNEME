@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://evemisslab.com/mneme/schemas/equivalence-contract-0.1.schema.json",
+  "title": "MNEME CPS EquivalenceContract 0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_version", "contract_id", "observation_surfaces", "forbidden_equalities", "authority"],
+  "properties": {
+    "contract_version": {"const": "mneme.equivalence-contract/0.1"},
+    "contract_id": {"type": "string", "minLength": 1},
+    "observation_surfaces": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "subject_ref"],
+        "properties": {
+          "kind": {"enum": [
+            "ANCHOR_MUST_MATCH",
+            "DECISION_MUST_NOT_REVERSE",
+            "DEPENDENCY_MUST_HOLD",
+            "PROVENANCE_MUST_COVER",
+            "FRESH_STATE_REQUIRED",
+            "IDENTITY_SCOPE_MUST_MATCH",
+            "AUTHORITY_MUST_NOT_ESCALATE"
+          ]},
+          "subject_ref": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "forbidden_equalities": {
+      "type": "array", "uniqueItems": true,
+      "items": {"enum": ["TOKEN_EQUALITY", "TRACE_EQUALITY"]}
+    },
+    "authority": {"const": false}
+  }
+}
