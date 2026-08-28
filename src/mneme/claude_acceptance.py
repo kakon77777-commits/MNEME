@@ -5,10 +5,15 @@ import hashlib
 import json
 import os
 import shutil
+import socket
+import subprocess
+import sys
+import sysconfig
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, replace
 from importlib.resources import files
 from pathlib import Path
+from types import FunctionType
 
 from .adapters.claude import ClaudeGlobalMemoryAdapter
 from .canonical import canonical_json_bytes, sha256_domain
@@ -20,6 +25,7 @@ from .claude_contracts import (
     ClaudeGlobalProjectionRequest,
     LocalManualWriteAuthorization,
 )
+from .claude_effects import ClaudeRuntimeEffectObserver
 from .claude_import import BEGIN, END, ClaudeManagedImport
 from .claude_projection import ClaudeProjectionPublisher
 from .errors import (
@@ -44,6 +50,13 @@ _EXPECTED_EFFECTS_PATH = (
     _PROJECT_ROOT / "tests" / "fixtures" / "claude" / "expected-effects.json"
 )
 _LOCAL_CASES = ("CGM-023", "CGM-024", "CGM-026", "CGM-027")
+_RUNTIME_SCAN_NAMES = (
+    "claude_activation.py",
+    "claude_cli.py",
+    "claude_projection.py",
+    "claude_import.py",
+    "adapters/claude.py",
+)
 _FORBIDDEN_EFFECT_FIELDS = {
     "private_read": "private_reads",
     "private_write": "private_writes",
@@ -81,6 +94,8 @@ class ClaudeGlobalEffectCounters:
     synthetic_runs: int
     synthetic_writes: int
     synthetic_write_refs: tuple[str, ...]
+    observation_mode: str
+    observed_events_digest: str
     private_reads: int = 0
     private_writes: int = 0
     production_reads: int = 0
@@ -90,6 +105,7 @@ class ClaudeGlobalEffectCounters:
     mcp_calls: int = 0
     bridge_calls: int = 0
     external_cli_calls: int = 0
+    observer_errors: int = 0
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -97,6 +113,8 @@ class ClaudeGlobalEffectCounters:
             "synthetic_runs": self.synthetic_runs,
             "synthetic_writes": self.synthetic_writes,
             "synthetic_write_refs": list(self.synthetic_write_refs),
+            "observation_mode": self.observation_mode,
+            "observed_events_digest": self.observed_events_digest,
             "private_reads": self.private_reads,
             "private_writes": self.private_writes,
             "production_reads": self.production_reads,
@@ -106,6 +124,7 @@ class ClaudeGlobalEffectCounters:
             "mcp_calls": self.mcp_calls,
             "bridge_calls": self.bridge_calls,
             "external_cli_calls": self.external_cli_calls,
+            "observer_errors": self.observer_errors,
         }
 
     def forbidden_total(self) -> int:
@@ -120,6 +139,7 @@ class ClaudeGlobalEffectCounters:
                 self.mcp_calls,
                 self.bridge_calls,
                 self.external_cli_calls,
+                self.observer_errors,
             )
         )
 
@@ -185,22 +205,39 @@ def validate_claude_global_memory(
         raise ClaudeContractError("acceptance root must be absolute")
     if selected_root.exists():
         raise ClaudeContractError("acceptance root must not already exist")
-    selected_root.mkdir()
-    expected_bytes = _EXPECTED_EFFECTS_PATH.read_bytes()
-    expected = json.loads(expected_bytes.decode("utf-8"))
-    expected_effects = expected["positive_effects"]
+    private_read_probe = _prepare_private_read_probe(selected_root, injected_effect)
+    observer = ClaudeRuntimeEffectObserver(
+        selected_root,
+        fixture_path=_EXPECTED_EFFECTS_PATH,
+        allowed_read_paths=_acceptance_allowed_read_paths(),
+        allowed_read_roots=_python_runtime_read_roots(),
+    )
+    cleanup_paths: tuple[Path, ...] = ()
+    with observer:
+        selected_root.mkdir(exist_ok=True)
+        expected_bytes = _EXPECTED_EFFECTS_PATH.read_bytes()
+        expected = json.loads(expected_bytes.decode("utf-8"))
+        expected_effects = expected["positive_effects"]
+        cleanup_paths = _run_injected_effect_probe(
+            selected_root,
+            injected_effect,
+            private_read_probe=private_read_probe,
+        )
 
-    repeat_root = selected_root / "mneme-cgm-repeat"
-    first = _execute_run(repeat_root)
-    _remove_exact_synthetic_run(repeat_root, selected_root)
-    second = _execute_run(repeat_root)
+        repeat_root = selected_root / "mneme-cgm-repeat"
+        first = _execute_run(repeat_root)
+        _remove_exact_synthetic_run(repeat_root, selected_root)
+        second = _execute_run(repeat_root)
+    for cleanup_path in cleanup_paths:
+        cleanup_path.unlink(missing_ok=True)
     deterministic = (
         first.fingerprint == second.fingerprint
         and first.cases == second.cases
         and first.artifacts == second.artifacts
     )
+    observed = observer.evidence()
     effects = ClaudeGlobalEffectCounters(
-        fixture_reads=1,
+        fixture_reads=observed.fixture_reads,
         synthetic_runs=2,
         synthetic_writes=first.activation_steps + second.activation_steps,
         synthetic_write_refs=(
@@ -208,16 +245,22 @@ def validate_claude_global_memory(
             "managed_import",
             "projection_publish",
         ),
+        observation_mode=observed.observation_mode,
+        observed_events_digest=observed.observed_events_digest,
+        private_reads=observed.private_reads,
+        private_writes=observed.private_writes,
+        production_reads=observed.production_reads,
+        production_writes=observed.production_writes,
+        network_calls=observed.network_calls,
+        provider_calls=observed.provider_calls,
+        mcp_calls=observed.mcp_calls,
+        bridge_calls=observed.bridge_calls,
+        external_cli_calls=observed.external_cli_calls,
+        observer_errors=observed.observer_errors,
     )
-    if effects.to_dict() != expected_effects:
+    if not _effects_match_expected_positive(effects, expected_effects):
         raise ClaudeContractError("measured effects do not match expected fixture")
-    reason_codes: tuple[str, ...] = ()
-    if injected_effect is not None:
-        field = _FORBIDDEN_EFFECT_FIELDS.get(injected_effect)
-        if field is None:
-            raise ValueError(f"unknown injected effect: {injected_effect}")
-        effects = replace(effects, **{field: 1})
-        reason_codes = (f"forbidden_effect:{injected_effect}",)
+    reason_codes = _effect_reason_codes(effects)
 
     local_cases = tuple(
         ClaudeGlobalAcceptanceCase(
@@ -248,6 +291,120 @@ def validate_claude_global_memory(
     report = replace(provisional, report_digest=digest)
     report.verify()
     return report
+
+
+def _prepare_private_read_probe(root: Path, injected_effect: str | None) -> Path | None:
+    if injected_effect is not None and injected_effect not in _FORBIDDEN_EFFECT_FIELDS:
+        raise ValueError(f"unknown injected effect: {injected_effect}")
+    if injected_effect != "private_read":
+        return None
+    probe = root / "private" / "synthetic-read-probe.txt"
+    probe.parent.mkdir(parents=True)
+    probe.write_bytes(b"synthetic private read probe")
+    return probe
+
+
+def _acceptance_allowed_read_paths() -> tuple[Path, ...]:
+    schema_paths = tuple(
+        Path(str(item))
+        for item in files("mneme.schemas").iterdir()
+        if item.name.endswith(".schema.json")
+    )
+    source_paths = tuple(Path(__file__).parent / name for name in _RUNTIME_SCAN_NAMES)
+    return (_EXPECTED_EFFECTS_PATH, *schema_paths, *source_paths)
+
+
+def _python_runtime_read_roots() -> tuple[Path, ...]:
+    selected = {
+        Path(value)
+        for key in ("stdlib", "platstdlib", "purelib", "platlib")
+        if (value := sysconfig.get_path(key))
+    }
+    return tuple(sorted(selected, key=lambda path: str(path).casefold()))
+
+
+def _run_injected_effect_probe(
+    root: Path,
+    injected_effect: str | None,
+    *,
+    private_read_probe: Path | None,
+) -> tuple[Path, ...]:
+    if injected_effect is None:
+        return ()
+    if injected_effect == "private_read":
+        if private_read_probe is None:
+            raise ClaudeContractError("private read probe was not prepared")
+        private_read_probe.read_bytes()
+        return ()
+    if injected_effect == "private_write":
+        target = root / "private" / "synthetic-write-probe.txt"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(b"synthetic private write probe")
+        return ()
+    if injected_effect == "production_read":
+        (_PROJECT_ROOT / "pyproject.toml").read_bytes()
+        return ()
+    if injected_effect == "production_write":
+        target = root.parent / f".{root.name}.synthetic-production-write-probe"
+        target.write_bytes(b"synthetic production write probe")
+        return (target,)
+    if injected_effect == "network":
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as selected:
+            selected.sendto(b"synthetic", ("127.0.0.1", 9))
+        return ()
+    if injected_effect == "external_cli":
+        subprocess.run([sys.executable, "-c", "pass"], check=True)
+        return ()
+    module_names = {
+        "provider": "anthropic.synthetic_probe",
+        "mcp": "mcp.synthetic_probe",
+        "bridge": "eml_bridge.synthetic_probe",
+    }
+    module_name = module_names.get(injected_effect)
+    if module_name is None:
+        raise ValueError(f"unknown injected effect: {injected_effect}")
+    entrypoint = FunctionType(
+        _synthetic_effect_entrypoint.__code__,
+        {"__name__": module_name},
+        "synthetic_entrypoint",
+    )
+    entrypoint()
+    return ()
+
+
+def _synthetic_effect_entrypoint() -> None:
+    return None
+
+
+def _effects_match_expected_positive(
+    effects: ClaudeGlobalEffectCounters,
+    expected: dict[str, object],
+) -> bool:
+    actual = effects.to_dict()
+    if set(actual) != set(expected):
+        return False
+    ignored_when_red = {
+        *_FORBIDDEN_EFFECT_FIELDS.values(),
+        "observer_errors",
+        "observed_events_digest",
+    }
+    for key, expected_value in expected.items():
+        if effects.forbidden_total() and key in ignored_when_red:
+            continue
+        if actual[key] != expected_value:
+            return False
+    return True
+
+
+def _effect_reason_codes(effects: ClaudeGlobalEffectCounters) -> tuple[str, ...]:
+    reasons = tuple(
+        f"forbidden_effect:{effect}"
+        for effect, field in _FORBIDDEN_EFFECT_FIELDS.items()
+        if getattr(effects, field) > 0
+    )
+    if effects.observer_errors:
+        return (*reasons, "effect_observer_error")
+    return reasons
 
 
 def _execute_run(root: Path) -> _RunEvidence:
@@ -707,13 +864,12 @@ def _case_crash_after(root: Path, materialized, context) -> bool:
 def _case_private_and_runtime_scan(root: Path, materialized) -> bool:
     runtime = root / "runtime"
     target = runtime / "AI_HOME" / "projection.md"
-    target.parent.mkdir(parents=True)
-    target.write_bytes(b"old")
+    runtime.mkdir(parents=True)
     try:
         ClaudeProjectionPublisher(runtime).plan(
             materialized,
             target,
-            hashlib.sha256(b"old").hexdigest(),
+            None,
         )
     except ClaudePathBoundaryError:
         return _runtime_ast_scan_is_clean()
@@ -722,13 +878,7 @@ def _case_private_and_runtime_scan(root: Path, materialized) -> bool:
 
 def _runtime_ast_scan_is_clean() -> bool:
     forbidden_modules = {"requests", "httpx", "socket", "urllib", "subprocess"}
-    for name in (
-        "claude_activation.py",
-        "claude_cli.py",
-        "claude_projection.py",
-        "claude_import.py",
-        "adapters/claude.py",
-    ):
+    for name in _RUNTIME_SCAN_NAMES:
         path = Path(__file__).parent / name
         tree = ast.parse(path.read_text(encoding="utf-8"))
         for node in ast.walk(tree):

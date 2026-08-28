@@ -10,6 +10,8 @@
       "managed_import",
       "projection_publish"
     ],
+    "observation_mode": "cpython_audit_and_profile_v0.1",
+    "observed_events_digest": "b092c86762231894d3d90da7d9ff452c53cf0c56738ed1cd981b496923613509",
     "private_reads": 0,
     "private_writes": 0,
     "production_reads": 0,
@@ -18,6 +20,7 @@
     "provider_calls": 0,
     "mcp_calls": 0,
     "bridge_calls": 0,
-    "external_cli_calls": 0
+    "external_cli_calls": 0,
+    "observer_errors": 0
   }
 }

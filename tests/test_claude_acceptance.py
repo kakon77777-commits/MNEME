@@ -3,12 +3,14 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import socket
 import subprocess
 import sys
 from pathlib import Path
 
 import pytest
 
+from mneme import claude_acceptance
 from mneme.canonical import canonical_json_bytes
 from mneme.claude_acceptance import validate_claude_global_memory
 
@@ -85,8 +87,46 @@ def test_each_injected_forbidden_effect_turns_acceptance_red(
         injected_effect=injected,
     )
     assert report.status == "FAIL"
-    assert getattr(report.effects, field) == 1
+    assert getattr(report.effects, field) >= 1
     assert report.reason_codes == (f"forbidden_effect:{injected}",)
+
+
+@pytest.mark.parametrize(
+    ("effect_name", "field"),
+    [
+        ("network", "network_calls"),
+        ("external_cli", "external_cli_calls"),
+        ("production_write", "production_writes"),
+    ],
+)
+def test_real_runtime_effect_in_exercised_path_turns_acceptance_red(
+    tmp_path,
+    monkeypatch,
+    effect_name,
+    field,
+):
+    original = claude_acceptance._execute_run
+    outside = tmp_path / "outside-acceptance.txt"
+
+    def execute_effect():
+        if effect_name == "network":
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as selected:
+                selected.sendto(b"synthetic", ("127.0.0.1", 9))
+        elif effect_name == "external_cli":
+            subprocess.run([sys.executable, "-c", "pass"], check=True)
+        else:
+            outside.write_bytes(b"synthetic outside write")
+
+    def wrapped(root):
+        execute_effect()
+        return original(root)
+
+    monkeypatch.setattr(claude_acceptance, "_execute_run", wrapped)
+    report = validate_claude_global_memory(tmp_path / f"acceptance-{effect_name}")
+
+    assert report.status == "FAIL"
+    assert getattr(report.effects, field) >= 1
+    assert f"forbidden_effect:{effect_name}" in report.reason_codes
 
 
 def test_report_contains_no_memory_body_or_host_absolute_path(tmp_path):
