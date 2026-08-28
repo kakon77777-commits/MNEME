@@ -11,9 +11,16 @@ from pathlib import Path
 
 ROOT = Path(__file__).parents[1]
 SCHEMA_NAMES = (
+    "claude-global-projection-manifest-0.1.schema.json",
+    "claude-global-projection-request-0.1.schema.json",
+    "claude-import-plan-0.1.schema.json",
+    "claude-import-receipt-0.1.schema.json",
+    "claude-publication-plan-0.1.schema.json",
+    "claude-publication-receipt-0.1.schema.json",
     "cognitive-seed-proposal-0.1.schema.json",
     "equivalence-contract-0.1.schema.json",
     "factorization-proposal-0.1.schema.json",
+    "local-manual-write-authorization-0.1.schema.json",
     "memory-markdown-profile-0.1.schema.json",
     "memory-record-0.1.schema.json",
     "persistence-assessment-0.1.schema.json",

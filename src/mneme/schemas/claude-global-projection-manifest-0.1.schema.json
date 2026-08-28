@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://evemisslab.com/mneme/schemas/claude-global-projection-manifest-0.1.schema.json",
+  "title": "MNEME ClaudeGlobalProjectionManifest 0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["manifest_version", "projection_ref", "request_ref", "request_digest", "source_head", "route_id", "byte_budget", "content_bytes", "content_sha256", "included_record_ids", "omitted", "required_record_ids", "generator_version", "not_claimed", "projection_digest"],
+  "properties": {
+    "manifest_version": {"const": "mneme.claude-global-projection-manifest/0.1"},
+    "projection_ref": {"type": "string", "minLength": 1},
+    "request_ref": {"type": "string", "minLength": 1},
+    "request_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "source_head": {"type": "string", "pattern": "^(GENESIS|[0-9a-f]{64})$"},
+    "route_id": {"const": "route://global/tier0"},
+    "byte_budget": {"type": "integer", "minimum": 1, "maximum": 16000},
+    "content_bytes": {"type": "integer", "minimum": 0, "maximum": 16000},
+    "content_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "included_record_ids": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "omitted": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["record_id", "reason"],
+        "properties": {
+          "record_id": {"type": "string", "minLength": 1},
+          "reason": {"enum": ["scope_not_allowed", "status_not_active", "record_type_not_allowed", "budget_exceeded"]}
+        }
+      }
+    },
+    "required_record_ids": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "generator_version": {"type": "string", "minLength": 1},
+    "not_claimed": {"const": ["resident_identity", "private_memory_access", "provider_continuity", "autonomous_write_authority", "cognitive_reconstruction", "claude_memory_readback"]},
+    "projection_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

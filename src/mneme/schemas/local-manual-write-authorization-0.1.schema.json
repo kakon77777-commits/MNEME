@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://evemisslab.com/mneme/schemas/local-manual-write-authorization-0.1.schema.json",
+  "title": "MNEME LocalManualWriteAuthorization 0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["authorization_version", "authorization_id", "principal_ref", "transaction_ref", "transaction_digest", "expected_source_head", "allowed_scope_paths", "status", "source_role", "source_user_item_ref", "source_user_item_digest", "not_claimed", "authorization_digest"],
+  "properties": {
+    "authorization_version": {"const": "mneme.local-manual-write-authorization/0.1"},
+    "authorization_id": {"type": "string", "minLength": 1},
+    "principal_ref": {"const": "principal:neo.k"},
+    "transaction_ref": {"type": "string", "minLength": 1},
+    "transaction_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "expected_source_head": {"type": "string", "pattern": "^(GENESIS|[0-9a-f]{64})$"},
+    "allowed_scope_paths": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 4,
+      "uniqueItems": true,
+      "items": {"enum": ["global/core", "global/collaboration", "global/verification", "global/machine"]}
+    },
+    "status": {"enum": ["active", "revoked", "expired", "suspended"]},
+    "source_role": {"const": "user"},
+    "source_user_item_ref": {"type": "string", "minLength": 1},
+    "source_user_item_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "not_claimed": {"const": ["resident_identity", "private_memory_access", "provider_continuity", "autonomous_write_authority", "cognitive_reconstruction", "claude_memory_readback"]},
+    "authorization_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

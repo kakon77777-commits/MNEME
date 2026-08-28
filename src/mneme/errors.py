@@ -42,5 +42,13 @@ class ProfileValidationError(MnemeError, ValueError):
     """A memory Markdown compatibility profile is invalid or ambiguous."""
 
 
+class ClaudeContractError(MnemeError, ValueError):
+    """A Claude global-memory transition contract is invalid or unsealed."""
+
+
+class ManualAuthorityError(ClaudeContractError):
+    """A local manual-write authorization is invalid or ineligible."""
+
+
 class CpsValidationError(MnemeError, ValueError):
     """A Cognitive Persistence Semantics object violates the CPS/0.1 contract."""
