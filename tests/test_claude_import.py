@@ -22,12 +22,14 @@ from mneme.claude_import import (
     PreparedClaudeImport,
 )
 from mneme.errors import (
+    AtomicReplaceUnavailableError,
     ClaudePathBoundaryError,
     InjectedCrash,
     ManagedBlockConflictError,
     ManualAuthorityError,
     StaleTargetError,
 )
+from tests.windows_junction import create_windows_junction
 
 FIXTURE_ROOT = Path(__file__).parent / "fixtures" / "claude"
 PROJECTION_BYTES = b"# MNEME Projection\n\nSynthetic global memory.\n"
@@ -388,6 +390,62 @@ def test_projection_and_user_memory_must_stay_inside_explicit_roots(tmp_path):
         selected.plan(user_memory, projection, sha256(user_memory.read_bytes()))
 
 
+def test_ai_home_user_memory_root_is_refused_as_private(tmp_path):
+    selected, projection, _, _, _ = environment(tmp_path)
+    user_root = tmp_path / "AI_HOME"
+    user_memory = user_root / ".claude" / "CLAUDE.md"
+    user_memory.parent.mkdir(parents=True)
+    user_memory.write_bytes(b"synthetic")
+    importer = ClaudeManagedImport(
+        selected._runtime_root,
+        user_root,
+        manifest(),
+    )
+
+    with pytest.raises(ClaudePathBoundaryError, match="private"):
+        importer.plan(user_memory, projection, sha256(b"synthetic"))
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows junction control")
+def test_windows_junction_projection_source_is_refused(tmp_path):
+    selected, _, user_memory, runtime_root, _ = environment(tmp_path)
+    real = runtime_root / "real-projection"
+    real.mkdir()
+    (real / "MNEME_GLOBAL.md").write_bytes(PROJECTION_BYTES)
+    junction = runtime_root / "junction-projection"
+    create_windows_junction(junction, real)
+
+    with pytest.raises(ClaudePathBoundaryError, match="reparse"):
+        selected.plan(
+            user_memory,
+            junction / "MNEME_GLOBAL.md",
+            sha256(user_memory.read_bytes()),
+        )
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows junction control")
+def test_windows_junction_user_memory_root_is_refused(tmp_path):
+    selected, projection, _, _, _ = environment(tmp_path)
+    real_user_root = tmp_path / "real-user"
+    user_memory = real_user_root / ".claude" / "CLAUDE.md"
+    user_memory.parent.mkdir(parents=True)
+    user_memory.write_bytes(b"synthetic")
+    junction_user_root = tmp_path / "junction-user"
+    create_windows_junction(junction_user_root, real_user_root)
+    importer = ClaudeManagedImport(
+        selected._runtime_root,
+        junction_user_root,
+        manifest(),
+    )
+
+    with pytest.raises(ClaudePathBoundaryError, match="reparse"):
+        importer.plan(
+            junction_user_root / ".claude" / "CLAUDE.md",
+            projection,
+            sha256(b"synthetic"),
+        )
+
+
 def test_projection_path_control_character_is_rejected_during_plan(tmp_path):
     selected, _, user_memory, runtime_root, _ = environment(tmp_path)
     controlled = runtime_root / "line\nbreak" / "MNEME_GLOBAL.md"
@@ -433,3 +491,21 @@ def test_invalid_utf8_user_memory_refuses_without_mutation(tmp_path):
     with pytest.raises(ManagedBlockConflictError, match="UTF-8"):
         plan_for(selected, user_memory, projection)
     assert user_memory.read_bytes() == body
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows sharing behavior")
+def test_open_reader_handle_returns_typed_import_refusal(tmp_path):
+    selected, projection, user_memory, _, _ = environment(tmp_path)
+    prepared = plan_for(selected, user_memory, projection)
+    before = user_memory.read_bytes()
+    handles = [user_memory.open("rb") for _ in range(4)]
+    try:
+        with pytest.raises(AtomicReplaceUnavailableError) as captured:
+            selected.apply(prepared, authorization())
+    finally:
+        for handle in handles:
+            handle.close()
+
+    assert isinstance(captured.value.__cause__, OSError)
+    assert user_memory.read_bytes() == before
+    assert not tuple(user_memory.parent.glob(f".{user_memory.name}.*"))

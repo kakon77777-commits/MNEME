@@ -20,6 +20,7 @@ from mneme.claude_projection import (
     PreparedClaudePublication,
 )
 from mneme.errors import (
+    AtomicReplaceUnavailableError,
     ClaudeContractError,
     ClaudePathBoundaryError,
     InjectedCrash,
@@ -27,6 +28,7 @@ from mneme.errors import (
     StaleTargetError,
     StoreConflictError,
 )
+from tests.windows_junction import create_windows_junction
 
 
 def sha256(data: bytes) -> str:
@@ -304,6 +306,58 @@ def test_escape_private_temp_ads_and_network_targets_are_refused(tmp_path):
             ClaudeProjectionPublisher(root).plan(projection(), target, None)
 
 
+def test_ai_home_component_is_refused_as_private(tmp_path):
+    root, _ = runtime_fixture(tmp_path)
+    target = root / "AI_HOME" / "projection.md"
+    target.parent.mkdir()
+    target.write_bytes(b"old")
+
+    with pytest.raises(ClaudePathBoundaryError, match="private"):
+        ClaudeProjectionPublisher(root).plan(projection(), target, sha256(b"old"))
+
+
+def test_projection_target_control_character_is_refused_directly(tmp_path):
+    root, _ = runtime_fixture(tmp_path)
+    controlled = root / ("bell" + chr(7)) / "projection.md"
+
+    with pytest.raises(ClaudePathBoundaryError, match="control"):
+        ClaudeProjectionPublisher(root).plan(projection(), controlled, None)
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows junction control")
+def test_windows_junction_inside_runtime_is_refused(tmp_path):
+    root, _ = runtime_fixture(tmp_path)
+    real = root / "real"
+    real.mkdir()
+    (real / "projection.md").write_bytes(b"old")
+    junction = root / "junction"
+    create_windows_junction(junction, real)
+
+    with pytest.raises(ClaudePathBoundaryError, match="reparse"):
+        ClaudeProjectionPublisher(root).plan(
+            projection(),
+            junction / "projection.md",
+            sha256(b"old"),
+        )
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows junction control")
+def test_windows_junction_runtime_root_is_refused(tmp_path):
+    real_root = tmp_path / "real-runtime"
+    target = real_root / "claude" / "MNEME_GLOBAL.md"
+    target.parent.mkdir(parents=True)
+    target.write_bytes(b"old")
+    junction_root = tmp_path / "junction-runtime"
+    create_windows_junction(junction_root, real_root)
+
+    with pytest.raises(ClaudePathBoundaryError, match="reparse"):
+        ClaudeProjectionPublisher(junction_root).plan(
+            projection(),
+            junction_root / "claude" / "MNEME_GLOBAL.md",
+            sha256(b"old"),
+        )
+
+
 def test_git_worktree_target_is_refused(tmp_path):
     root, target = runtime_fixture(tmp_path)
     (root / ".git").mkdir()
@@ -363,3 +417,46 @@ def test_relative_runtime_root_is_refused_without_discovery(tmp_path, monkeypatc
     monkeypatch.chdir(tmp_path)
     with pytest.raises(ClaudePathBoundaryError, match="absolute"):
         ClaudeProjectionPublisher(Path("runtime"))
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows sharing behavior")
+def test_open_reader_handle_returns_typed_replace_refusal(tmp_path):
+    root, target = runtime_fixture(tmp_path)
+    target.write_bytes(b"old")
+    publisher = ClaudeProjectionPublisher(root)
+    selected = publisher.plan(projection(), target, sha256(b"old"))
+    handles = [target.open("rb") for _ in range(4)]
+    try:
+        with pytest.raises(AtomicReplaceUnavailableError) as captured:
+            publisher.publish(selected, authorization())
+    finally:
+        for handle in handles:
+            handle.close()
+
+    assert isinstance(captured.value.__cause__, OSError)
+    assert target.read_bytes() == b"old"
+    assert not tuple(target.parent.glob(f".{target.name}.*"))
+
+
+def test_atomic_replace_failure_is_not_retried(tmp_path, monkeypatch):
+    root, target = runtime_fixture(tmp_path)
+    target.write_bytes(b"old")
+    publisher = ClaudeProjectionPublisher(root)
+    selected = publisher.plan(projection(), target, sha256(b"old"))
+    calls = 0
+
+    def refuse_replace(source, destination):
+        nonlocal calls
+        calls += 1
+        raise PermissionError(13, "synthetic replace refusal", destination)
+
+    monkeypatch.setattr(os, "replace", refuse_replace)
+
+    with pytest.raises(AtomicReplaceUnavailableError) as captured:
+        publisher.publish(selected, authorization())
+
+    assert calls == 1
+    assert isinstance(captured.value.__cause__, PermissionError)
+    assert "errno=13" in str(captured.value)
+    assert target.read_bytes() == b"old"
+    assert not tuple(target.parent.glob(f".{target.name}.*"))

@@ -74,5 +74,9 @@ class ManagedBlockConflictError(ClaudeContractError):
     """Claude user memory has an ambiguous or unsafe MNEME managed block."""
 
 
+class AtomicReplaceUnavailableError(ClaudeContractError):
+    """The OS refused one atomic replacement attempt; no retry was performed."""
+
+
 class CpsValidationError(MnemeError, ValueError):
     """A Cognitive Persistence Semantics object violates the CPS/0.1 contract."""

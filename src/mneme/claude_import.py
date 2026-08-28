@@ -19,9 +19,11 @@ from .claude_projection import (
     _fsync_directory,
     _has_git_ancestor,
     _reject_ads,
+    _reject_control_characters,
     _reject_network_or_uri,
     _reject_strong_private_parts,
     _reject_symlink_chain,
+    _replace_file_once,
     _same_file_state,
     _sha256_bytes,
     _validate_optional_digest,
@@ -307,10 +309,10 @@ class ClaudeManagedImport:
 
     @staticmethod
     def _validate_root(root: Path, label: str) -> Path:
+        _reject_control_characters(root, label=label)
         _reject_network_or_uri(root)
         _reject_ads(root)
-        if root.is_symlink():
-            raise ClaudePathBoundaryError(f"{label} cannot be a symlink")
+        _reject_symlink_chain(root, stop=root)
         try:
             resolved = root.resolve(strict=True)
         except (FileNotFoundError, OSError) as error:
@@ -330,8 +332,7 @@ class ClaudeManagedImport:
         must_exist: bool,
         label: str,
     ) -> Path:
-        if any(ord(character) < 32 or ord(character) == 127 for character in str(path)):
-            raise ClaudePathBoundaryError(f"{label} path contains a control character")
+        _reject_control_characters(path, label=label)
         _reject_network_or_uri(path)
         _reject_ads(path)
         if not path.is_absolute():
@@ -367,8 +368,8 @@ class ClaudeManagedImport:
 
     @staticmethod
     def _validate_lock_path(path: Path, label: str) -> None:
-        if path.is_symlink():
-            raise ClaudePathBoundaryError(f"{label} cannot be a symlink")
+        _reject_control_characters(path, label=label)
+        _reject_symlink_chain(path, stop=path.parent)
         if path.exists():
             metadata = path.lstat()
             if not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
@@ -445,7 +446,7 @@ class ClaudeManagedImport:
             )
             if observed != expected_preimage:
                 raise StaleTargetError("user memory changed before atomic replace")
-            os.replace(temporary, target)
+            _replace_file_once(temporary, target)
             _fsync_directory(target.parent)
             if self._crash_at == "after_replace":
                 raise InjectedCrash("injected crash at after_replace")

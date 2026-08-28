@@ -17,6 +17,7 @@ from .claude_contracts import (
     LocalManualWriteAuthorization,
 )
 from .errors import (
+    AtomicReplaceUnavailableError,
     ClaudeContractError,
     ClaudePathBoundaryError,
     InjectedCrash,
@@ -28,7 +29,15 @@ from .writer_lock import StoreWriterLock
 _PLAN_ID_DOMAIN = b"MNEME-CLAUDE-PUBLICATION-PLAN-ID-0.1"
 _RECEIPT_ID_DOMAIN = b"MNEME-CLAUDE-PUBLICATION-RECEIPT-ID-0.1"
 _STRONG_PRIVATE_PARTS = frozenset(
-    ("ai_residence", "00_residence", "private", "secrets", ".ssh", ".gnupg")
+    (
+        "ai_residence",
+        "ai_home",
+        "00_residence",
+        "private",
+        "secrets",
+        ".ssh",
+        ".gnupg",
+    )
 )
 _FORBIDDEN_RELATIVE_PARTS = frozenset(("temp", "tmp", "network", "repo", ".git"))
 _CRASH_POINTS = frozenset(("before_replace", "after_replace"))
@@ -196,8 +205,8 @@ class ClaudeProjectionPublisher:
 
     def _validate_writer_lock_path(self) -> None:
         path = self._writer_lock_path
-        if path.is_symlink():
-            raise ClaudePathBoundaryError("publication writer lock cannot be a symlink")
+        _reject_control_characters(path, label="publication writer lock")
+        _reject_symlink_chain(path, stop=self._validate_runtime_root())
         if path.exists():
             metadata = path.lstat()
             if not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
@@ -227,10 +236,10 @@ class ClaudeProjectionPublisher:
 
     def _validate_runtime_root(self) -> Path:
         root = self._runtime_root
+        _reject_control_characters(root, label="runtime root")
         _reject_network_or_uri(root)
         _reject_ads(root)
-        if root.is_symlink():
-            raise ClaudePathBoundaryError("runtime root cannot be a symlink")
+        _reject_symlink_chain(root, stop=root)
         try:
             resolved = root.resolve(strict=True)
         except (FileNotFoundError, OSError) as error:
@@ -244,6 +253,7 @@ class ClaudeProjectionPublisher:
 
     def _validate_target(self, target: Path) -> Path:
         root = self._validate_runtime_root()
+        _reject_control_characters(target, label="projection target")
         _reject_network_or_uri(target)
         _reject_ads(target)
         if not target.is_absolute():
@@ -326,7 +336,7 @@ class ClaudeProjectionPublisher:
                 raise InjectedCrash("injected crash at before_replace")
             if self._observe_target(target) != expected_preimage:
                 raise StaleTargetError("projection target changed before atomic replace")
-            os.replace(temporary, target)
+            _replace_file_once(temporary, target)
             _fsync_directory(target.parent)
             if self._crash_at == "after_replace":
                 raise InjectedCrash("injected crash at after_replace")
@@ -361,6 +371,11 @@ def _reject_network_or_uri(path: Path) -> None:
         raise ClaudePathBoundaryError("network and URI paths are forbidden")
 
 
+def _reject_control_characters(path: Path, *, label: str) -> None:
+    if any(ord(character) < 32 or ord(character) == 127 for character in str(path)):
+        raise ClaudePathBoundaryError(f"{label} path contains a control character")
+
+
 def _reject_ads(path: Path) -> None:
     raw = str(path)
     drive = PureWindowsPath(raw).drive
@@ -378,11 +393,42 @@ def _reject_strong_private_parts(path: Path) -> None:
 def _reject_symlink_chain(path: Path, *, stop: Path) -> None:
     current = path
     while True:
-        if current.is_symlink():
-            raise ClaudePathBoundaryError("projection path cannot contain a symlink")
+        _reject_link_or_reparse_component(current)
         if current == stop or current.parent == current:
             return
         current = current.parent
+
+
+def _reject_link_or_reparse_component(path: Path) -> None:
+    try:
+        metadata = path.lstat()
+    except FileNotFoundError:
+        return
+    if stat.S_ISLNK(metadata.st_mode) or path.is_symlink():
+        raise ClaudePathBoundaryError("local path cannot contain a symlink")
+    if os.name != "nt":
+        return
+    attributes = getattr(metadata, "st_file_attributes", None)
+    reparse_mask = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", None)
+    if attributes is None or reparse_mask is None:
+        raise ClaudePathBoundaryError("Windows reparse metadata is unavailable")
+    if attributes & reparse_mask:
+        reparse_tag = getattr(metadata, "st_reparse_tag", None)
+        raise ClaudePathBoundaryError(
+            f"local path cannot contain a reparse point (tag={reparse_tag})"
+        )
+
+
+def _replace_file_once(source: Path, target: Path) -> None:
+    try:
+        os.replace(source, target)
+    except OSError as error:
+        errno = getattr(error, "errno", None)
+        winerror = getattr(error, "winerror", None)
+        raise AtomicReplaceUnavailableError(
+            "atomic replace unavailable after one attempt "
+            f"(errno={errno}, winerror={winerror})"
+        ) from error
 
 
 def _has_git_ancestor(path: Path) -> bool:
