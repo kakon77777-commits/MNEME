@@ -78,5 +78,13 @@ class AtomicReplaceUnavailableError(ClaudeContractError):
     """The OS refused one atomic replacement attempt; no retry was performed."""
 
 
+class RealActivationNotAuthorizedError(ManualAuthorityError):
+    """The synthetic code candidate cannot target a real Claude installation."""
+
+
+class CliInputError(MnemeError, ValueError):
+    """A CLI invocation is incomplete or structurally invalid."""
+
+
 class CpsValidationError(MnemeError, ValueError):
     """A Cognitive Persistence Semantics object violates the CPS/0.1 contract."""
