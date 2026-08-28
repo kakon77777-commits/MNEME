@@ -70,5 +70,9 @@ class InjectedCrash(MnemeError, RuntimeError):
     """A synthetic fault-injection point interrupted an atomic operation."""
 
 
+class ManagedBlockConflictError(ClaudeContractError):
+    """Claude user memory has an ambiguous or unsafe MNEME managed block."""
+
+
 class CpsValidationError(MnemeError, ValueError):
     """A Cognitive Persistence Semantics object violates the CPS/0.1 contract."""
