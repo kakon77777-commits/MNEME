@@ -2,17 +2,15 @@ from __future__ import annotations
 
 from copy import deepcopy
 from dataclasses import dataclass
-import json
-from pathlib import Path
 from typing import Iterable
 
 from jsonschema import Draft202012Validator
 
 from .errors import RouteValidationError
 from .records import MemoryRecord
+from .schemas import read_schema
 
-_SCHEMA_PATH = Path(__file__).resolve().parents[2] / "schemas" / "route-0.1.schema.json"
-_SCHEMA = json.loads(_SCHEMA_PATH.read_text(encoding="utf-8"))
+_SCHEMA = read_schema("route-0.1.schema.json")
 _VALIDATOR = Draft202012Validator(_SCHEMA)
 
 

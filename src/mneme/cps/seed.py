@@ -2,19 +2,19 @@ from __future__ import annotations
 
 from copy import deepcopy
 from dataclasses import dataclass
-import json
-from pathlib import Path
 from typing import Any, Iterable
 
 from jsonschema import Draft202012Validator
 
 from ..canonical import canonical_json_bytes, sha256_domain
 from ..errors import CpsValidationError
+from ..schemas import read_schema
 from .factorization import FactorizationProposal
 from .models import EquivalenceContract, RecomputationReference
 
-_SCHEMA_PATH = Path(__file__).resolve().parents[3] / "schemas" / "cognitive-seed-proposal-0.1.schema.json"
-_VALIDATOR = Draft202012Validator(json.loads(_SCHEMA_PATH.read_text(encoding="utf-8")))
+_VALIDATOR = Draft202012Validator(
+    read_schema("cognitive-seed-proposal-0.1.schema.json")
+)
 
 
 def _error_key(error) -> tuple[str, ...]:

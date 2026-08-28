@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from copy import deepcopy
 from dataclasses import dataclass
-import json
-from pathlib import Path
 from typing import Any
 
 from jsonschema import Draft202012Validator
@@ -11,9 +9,9 @@ from jsonschema import Draft202012Validator
 from .canonical import canonical_json_bytes, sha256_domain
 from .errors import RecordValidationError, TransactionValidationError
 from .records import MemoryRecord
+from .schemas import read_schema
 
-_SCHEMA_PATH = Path(__file__).resolve().parents[2] / "schemas" / "transaction-0.1.schema.json"
-_SCHEMA = json.loads(_SCHEMA_PATH.read_text(encoding="utf-8"))
+_SCHEMA = read_schema("transaction-0.1.schema.json")
 _VALIDATOR = Draft202012Validator(_SCHEMA)
 
 

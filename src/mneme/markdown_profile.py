@@ -11,9 +11,9 @@ from jsonschema import Draft202012Validator
 
 from .canonical import canonical_json_bytes, sha256_domain
 from .errors import ProfileValidationError
+from .schemas import read_schema
 
-_SCHEMA_PATH = Path(__file__).resolve().parents[2] / "schemas" / "memory-markdown-profile-0.1.schema.json"
-_SCHEMA = json.loads(_SCHEMA_PATH.read_text(encoding="utf-8"))
+_SCHEMA = read_schema("memory-markdown-profile-0.1.schema.json")
 _VALIDATOR = Draft202012Validator(_SCHEMA)
 _WS_RE = re.compile(r"\s+")
 
