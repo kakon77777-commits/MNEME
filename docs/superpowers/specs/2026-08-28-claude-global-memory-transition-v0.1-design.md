@@ -217,11 +217,18 @@ The only automated change to the Claude user memory file is this closed block:
 
 Rules:
 
-- exactly zero or one block may exist;
+- exactly zero or one block with the two exact MNEME delimiter strings may
+  exist;
+- unrelated managed HTML-comment blocks are neither parsed as MNEME blocks nor
+  treated as an error, and their bytes remain unchanged;
 - the import line is not inside a Markdown code fence;
 - the path is absolute, local, points to the verified projection and contains
   no newline or control character;
 - content before and after the block is preserved byte-for-byte;
+- existing BOM state and mixed CRLF/LF line endings outside the MNEME block are
+  preserved byte-for-byte; the tool does not normalize the whole document;
+- the inserted MNEME block itself uses canonical LF bytes so its exact
+  pre-image/post-image behavior is deterministic on every platform;
 - duplicate, nested, malformed or partially present markers refuse mutation;
 - first insertion and every replacement bind the exact pre-image digest;
 - replacement is atomic and followed by byte-for-byte readback;
@@ -319,7 +326,9 @@ verified MNEME source/install
 -> CLAUDE.md pre-image/digest revalidated
 -> managed import block atomically inserted and read back
 -> local activation receipt
+-> empirical real-size @import observation
 -> Claude /memory readback (separate manual observation)
+-> active-session restart/reload observation when the session predates activation
 ```
 
 Code-candidate testing stops before the real transaction, runtime directory or
@@ -342,8 +351,12 @@ the implementation candidate is accepted.
 | Projection target changed since plan | stale-target refusal |
 | Claude file changed since plan | stale-target refusal |
 | Managed block malformed/duplicated | no Claude file mutation |
+| Other unrelated managed blocks exist | preserve them byte-for-byte; continue |
 | Atomic replace/readback mismatch | failure receipt; do not claim activation |
 | Claude `/memory` unavailable | activation state remains `readback_unmeasured` |
+| Real 16,000-byte import behavior unmeasured | activation remains `import_unmeasured` |
+| Real 16,000-byte import is not loaded/visible | activation refused; lower budget requires a reviewed design delta |
+| Claude session predates activation | session remains `session_stale_unmeasured` until explicit restart/reload observation |
 
 No failure triggers automatic deletion, rollback of canonical history, private
 search, provider call or blind retry.
@@ -418,6 +431,9 @@ explicit local activation authority.
 | CGM-022 | Claude suggestion presented as commit authority | refused |
 | CGM-023 | Manual `/memory` confirms import | observed readback receipt |
 | CGM-024 | `/memory` not run | `readback_unmeasured`, never promoted |
+| CGM-025 | Existing unrelated managed blocks and mixed line endings | all outside bytes preserved exactly |
+| CGM-026 | Real 16,000-byte imported projection on target host | loaded/visible or activation refused with exact evidence |
+| CGM-027 | Session started before activation | stale/unmeasured until restart or explicit reload readback |
 
 Each negative control has an executed positive counterpart proving the named
 gate is live.
@@ -432,6 +448,13 @@ The public code candidate records:
 - synthetic store/projection/import receipts;
 - no-network/no-private/no-provider effect counters;
 - deterministic repeated-run digests.
+
+Local activation evidence additionally distinguishes:
+
+- projection publication from actual Claude import/load behavior;
+- `/memory` visibility from instruction compliance;
+- sessions started before activation from sessions started or explicitly
+  reloaded afterward.
 
 The local activation evidence records only refs, digests, byte counts, paths
 needed for local recovery, and outcome states. It does not commit:
@@ -454,9 +477,12 @@ to become provider-neutral canonical records.
 
 ## 16. Success definition
 
-The code candidate succeeds when all CGM-001 through CGM-022 synthetic cases
-pass, installed-wheel resources work, the concurrent-writer and duplicate-ID
-counterexamples are closed, and no real/global file is touched.
+The code candidate succeeds when CGM-001 through CGM-022 plus CGM-025 pass with
+synthetic fixtures, installed-wheel resources work, the concurrent-writer and
+duplicate-ID counterexamples are closed, and no real/global file is touched.
+
+CGM-023, CGM-024, CGM-026 and CGM-027 belong only to the later local activation
+gate because they require the real Claude Code user-memory consumer.
 
 Local activation succeeds only when:
 
@@ -465,7 +491,9 @@ exact approved transaction committed once
 -> provider-neutral global projection <= 16000 bytes
 -> projection manifest and content read back exactly
 -> existing Claude memory preserved outside one managed import block
+-> real import-size behavior confirms load/visibility in a post-activation or explicitly reloaded session
 -> Claude /memory observes the import, or status remains explicitly unmeasured
+-> sessions that predate activation remain stale/unmeasured until restart or reload
 ```
 
 No status in this profile claims resident identity, private memory access,
