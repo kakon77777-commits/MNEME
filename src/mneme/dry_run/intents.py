@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 from dataclasses import dataclass
+from collections import Counter
 import json
 from pathlib import Path
 from typing import Iterable, Mapping, Any
@@ -70,8 +71,11 @@ def evaluate_factorization_intents(
     intents: Iterable[FactorizationIntent], *, pass1_record_ids: set[str],
     assessments_by_record: Mapping[str, PersistenceAssessment],
 ) -> tuple[FactorizationIntentResult,...]:
+    intent_list=tuple(intents); counts=Counter(intent.intent_id for intent in intent_list)
     out=[]; adapter=CpsObservationAdapter()
-    for intent in intents:
+    for intent in intent_list:
+        if counts[intent.intent_id] > 1:
+            out.append(FactorizationIntentResult(intent.intent_id,'REJECTED','DUPLICATE_INTENT_ID','duplicate factorization intent_id')); continue
         raw=intent.to_dict(); subjects=[str(x) for x in raw['subject_record_ids']]
         if not set(subjects).issubset(pass1_record_ids):
             out.append(FactorizationIntentResult(intent.intent_id,'REJECTED','CROSS_PASS_SUBJECT','subject not in PASS 1')); continue
@@ -92,8 +96,11 @@ def evaluate_factorization_intents(
 def evaluate_seed_intents(
     intents: Iterable[SeedIntent], *, accepted_factorizations: Mapping[str, FactorizationProposal],
 ) -> tuple[SeedIntentResult,...]:
+    intent_list=tuple(intents); counts=Counter(intent.seed_intent_id for intent in intent_list)
     out=[]; adapter=CpsObservationAdapter()
-    for intent in intents:
+    for intent in intent_list:
+        if counts[intent.seed_intent_id] > 1:
+            out.append(SeedIntentResult(intent.seed_intent_id,'REJECTED','DUPLICATE_INTENT_ID','duplicate seed intent_id')); continue
         raw=intent.to_dict(); fid=str(raw['factorization_intent_id'])
         factorization=accepted_factorizations.get(fid)
         if factorization is None:

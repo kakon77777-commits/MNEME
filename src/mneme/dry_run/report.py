@@ -113,7 +113,9 @@ def render_private_report(report:DryRunReport, private_material:Mapping[str,obje
 
 def render_sanitized_report(private_report:Mapping[str,object],*,salt:str)->dict[str,object]:
     if not salt: raise DryRunValidationError('sanitized report requires caller-supplied salt')
-    raw=deepcopy(private_report['report'])
+    if 'report' not in private_report or not isinstance(private_report['report'], dict):
+        raise DryRunValidationError('sanitized report requires a validated report object')
+    raw=DryRunReport.from_dict(private_report['report']).to_dict()
     source=raw.get('source',{})
     if source.get('sha256'):
         source['sha256_alias']=sanitized_alias('source',str(source['sha256']),salt)

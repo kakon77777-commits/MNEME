@@ -103,3 +103,30 @@ def test_invalid_recomputation_or_equivalence_authority_is_cps_rejected():
     bad_eq = eq_contract_dict(); bad_eq['authority'] = True
     result = evaluate_seed_intents([SeedIntent.from_dict(seed_intent_dict(equivalence_contract=bad_eq))], accepted_factorizations={'fi-1':fr.proposal})[0]
     assert result.error_code == 'CPS_REJECTED'
+
+
+def test_duplicate_factorization_intent_ids_are_all_rejected():
+    first = FactorizationIntent.from_dict(factorization_intent_dict(intent_id='dup'))
+    second = FactorizationIntent.from_dict(factorization_intent_dict(intent_id='dup'))
+    results = evaluate_factorization_intents(
+        [first, second],
+        pass1_record_ids={'r1'},
+        assessments_by_record={'r1': assessment()},
+    )
+    assert [result.status for result in results] == ['REJECTED', 'REJECTED']
+    assert [result.error_code for result in results] == ['DUPLICATE_INTENT_ID', 'DUPLICATE_INTENT_ID']
+
+
+def test_duplicate_seed_intent_ids_are_all_rejected():
+    fi = FactorizationIntent.from_dict(factorization_intent_dict())
+    fr = evaluate_factorization_intents(
+        [fi], pass1_record_ids={'r1'}, assessments_by_record={'r1': assessment()}
+    )[0]
+    assert fr.status == 'ACCEPTED'
+    first = SeedIntent.from_dict(seed_intent_dict(seed_intent_id='dup-seed'))
+    second = SeedIntent.from_dict(seed_intent_dict(seed_intent_id='dup-seed'))
+    results = evaluate_seed_intents(
+        [first, second], accepted_factorizations={'fi-1': fr.proposal}
+    )
+    assert [result.status for result in results] == ['REJECTED', 'REJECTED']
+    assert [result.error_code for result in results] == ['DUPLICATE_INTENT_ID', 'DUPLICATE_INTENT_ID']

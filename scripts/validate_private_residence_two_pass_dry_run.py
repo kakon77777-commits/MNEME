@@ -16,6 +16,7 @@ import mneme.dry_run.analyzer as analyzer_module
 from mneme.dry_run.compatibility import run_compatibility_pass
 from mneme.dry_run.intents import FactorizationIntent, SeedIntent, evaluate_factorization_intents, evaluate_seed_intents
 from mneme.dry_run.persistence import run_persistence_pass
+from mneme.dry_run.report import render_private_report, render_sanitized_report
 from mneme.dry_run.policy import PersistencePolicy, resolve_contexts
 from mneme.errors import CpsValidationError, DryRunValidationError
 from mneme.markdown_profile import load_builtin_evemiss_profile
@@ -142,12 +143,16 @@ def run_gate():
     bad=copy.deepcopy(fraw); bad['generators'][0].pop('source_ref')
     br=evaluate_factorization_intents([FactorizationIntent.from_dict(bad)],pass1_record_ids=mapped,assessments_by_record={a.to_dict()['subject_refs'][0]:a for a in result.pass2.assessments})[0]
     assert br.error_code=='CPS_REJECTED'; controls.append('D12-untraceable-factorization-component-rejected')
+    dup_results=evaluate_factorization_intents([fintent,fintent],pass1_record_ids=mapped,assessments_by_record={a.to_dict()['subject_refs'][0]:a for a in result.pass2.assessments})
+    assert [x.error_code for x in dup_results]==['DUPLICATE_INTENT_ID','DUPLICATE_INTENT_ID']; controls.append('D12-duplicate-factorization-intent-id-rejected')
 
     # D13
     assert result.seed_results[0].status=='ACCEPTED'; cases['D13']='PASS'
     badseed=copy.deepcopy(sraw); badseed['generators']=[]
     sr=evaluate_seed_intents([SeedIntent.from_dict(badseed)],accepted_factorizations={'synthetic-fi-generative':result.factorization_results[0].proposal})[0]
     assert sr.error_code=='CPS_REJECTED'; controls.append('D13-factorization-generator-replacement-rejected')
+    dup_seed_results=evaluate_seed_intents([sintent,sintent],accepted_factorizations={'synthetic-fi-generative':result.factorization_results[0].proposal})
+    assert [x.error_code for x in dup_seed_results]==['DUPLICATE_INTENT_ID','DUPLICATE_INTENT_ID']; controls.append('D13-duplicate-seed-intent-id-rejected')
 
     # D14
     assert any(a.to_dict()['candidate']=='RECOMPUTE' for a in result.pass2.assessments)
@@ -164,6 +169,9 @@ def run_gate():
     sanitized=PrivateResidenceDryRunAnalyzer().analyze(replace(request,privacy_mode='sanitized',sanitization_salt='acceptance-salt'))
     joined=b'\n'.join(sanitized.evidence_files.values()); assert str(SOURCE).encode() not in joined and SOURCE.read_bytes() not in joined and before.encode() not in joined and b'# MEMORY' not in joined
     cases['D16']='PASS'; controls.append('D16-private-text-absent-from-sanitized-evidence')
+    private_report=render_private_report(result.report,{})
+    private_report['report']['pass2']['private_text']='secret nested text'
+    expect_error(lambda:render_sanitized_report(private_report,salt='acceptance-salt'),'D16-nested-private-report-field-rejected',controls)
 
     # D17
     idmeta=next(m for m in result.pass1.metadata if m.section_id=='named_identities'); idrec=next(r for r in result.pass1.records if r.to_dict()['record_id']==idmeta.record_id); assert idrec.to_dict()['record_type']=='fact' and idrec.to_dict()['scope']['subject']=='identity_registry'

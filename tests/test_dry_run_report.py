@@ -104,3 +104,34 @@ def test_sanitized_alias_and_report_fingerprint_are_deterministic_and_sensitive(
     b={'report_version':'mneme.private-residence-dry-run/0.2','x':2}
     assert report_fingerprint(a)==report_fingerprint(dict(a))
     assert report_fingerprint(a)!=report_fingerprint(b)
+
+
+def test_report_schema_rejects_unknown_nested_fields():
+    from mneme.dry_run.report import DryRunReport
+    from mneme.errors import DryRunValidationError
+
+    report = build_report(
+        source_sha256='a'*64, source_byte_count=10, source_line_count=2, source_mutated=False,
+        profile_id='evemiss-residence/0.1', profile_digest='b'*64,
+        policy_summary={'policy_id':'NO_POLICY','policy_digest':None,'rule_count':0},
+        pass1=pass1(), pass2=pass2(('PRESERVE',)), factorization_results=(), seed_results=(), blocking_reasons=()
+    )
+    raw = report.to_dict()
+    raw['pass1']['private_text'] = 'must-not-be-accepted'
+    with pytest.raises(DryRunValidationError):
+        DryRunReport.from_dict(raw)
+
+
+def test_sanitized_renderer_rejects_nested_private_field_in_report():
+    from mneme.errors import DryRunValidationError
+
+    report = build_report(
+        source_sha256='a'*64, source_byte_count=10, source_line_count=2, source_mutated=False,
+        profile_id='evemiss-residence/0.1', profile_digest='b'*64,
+        policy_summary={'policy_id':'NO_POLICY','policy_digest':None,'rule_count':0},
+        pass1=pass1(), pass2=pass2(('PRESERVE',)), factorization_results=(), seed_results=(), blocking_reasons=()
+    )
+    private = render_private_report(report, {})
+    private['report']['pass2']['private_text'] = 'secret nested text'
+    with pytest.raises(DryRunValidationError):
+        render_sanitized_report(private, salt='caller-supplied-test-salt')
