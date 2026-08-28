@@ -1,0 +1,23 @@
+{
+  "schema": "mneme.claude-global-expected-effects/0.1",
+  "fixture_ref": "fixture://mneme/claude-global/expected-effects-v0.1",
+  "positive_effects": {
+    "fixture_reads": 1,
+    "synthetic_runs": 2,
+    "synthetic_writes": 6,
+    "synthetic_write_refs": [
+      "canonical_commit",
+      "managed_import",
+      "projection_publish"
+    ],
+    "private_reads": 0,
+    "private_writes": 0,
+    "production_reads": 0,
+    "production_writes": 0,
+    "network_calls": 0,
+    "provider_calls": 0,
+    "mcp_calls": 0,
+    "bridge_calls": 0,
+    "external_cli_calls": 0
+  }
+}
