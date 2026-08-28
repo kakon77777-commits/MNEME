@@ -1,0 +1,55 @@
+{
+  "profile_version": "mneme.memory-markdown-profile/0.1",
+  "profile_id": "evemiss-residence/0.2",
+  "title": "EveMiss Residence MEMORY.md Profile 0.2",
+  "sections": [
+    {
+      "section_id": "memory_index",
+      "aliases": ["Memory Index"],
+      "render_heading": "Memory Index",
+      "scope": {"kind": "global", "subject": "core"},
+      "block_rules": {"paragraph": "instruction"},
+      "route_hints": ["route://global/tier0"]
+    },
+    {
+      "section_id": "standing_instructions",
+      "aliases": ["Standing instructions"],
+      "render_heading": "Standing Instructions",
+      "scope": {"kind": "global", "subject": "core"},
+      "block_rules": {"unordered_list_item": "instruction"},
+      "route_hints": ["route://global/tier0"]
+    },
+    {
+      "section_id": "verification_lessons",
+      "aliases": ["Verification lessons"],
+      "render_heading": "Verification Lessons",
+      "scope": {"kind": "global", "subject": "verification"},
+      "block_rules": {"unordered_list_item": "lesson"},
+      "route_hints": ["route://method/verification"]
+    },
+    {
+      "section_id": "who_how_we_work",
+      "aliases": ["Who / how we work"],
+      "render_heading": "Who / How We Work",
+      "scope": {"kind": "global", "subject": "collaboration"},
+      "block_rules": {"unordered_list_item": "instruction"},
+      "route_hints": ["route://global/tier0"]
+    },
+    {
+      "section_id": "named_identities",
+      "aliases": ["Named Identities", "Named Identities (Tier 1 Residences)"],
+      "render_heading": "Named Identities (Tier 1 Residences)",
+      "scope": {"kind": "global", "subject": "identity_registry"},
+      "block_rules": {"unordered_list_item": "fact"},
+      "route_hints": ["route://global/tier0"]
+    },
+    {
+      "section_id": "this_machine",
+      "aliases": ["This machine"],
+      "render_heading": "This Machine",
+      "scope": {"kind": "global", "subject": "machine"},
+      "block_rules": {"unordered_list_item": "fact", "paragraph": "fact"},
+      "route_hints": ["route://global/tier0"]
+    }
+  ]
+}
