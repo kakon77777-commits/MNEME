@@ -62,8 +62,8 @@ def generative_factorization():
         source_refs=["r-a"],
         anchors=["r-a"],
         structure=[{"relation": "depends_on", "source_ref": "r-a", "target_ref": "r-b"}],
-        generators=[{"kind": "RECONSTRUCTION_RECIPE", "generator_ref": "synthetic://recipe/1"}],
-        obligations=[{"kind": "ANCHOR_MUST_MATCH", "subject_ref": "r-a"}],
+        generators=[{"kind": "RECONSTRUCTION_RECIPE", "generator_ref": "synthetic://recipe/1", "source_ref": "r-a"}],
+        obligations=[{"kind": "ANCHOR_MUST_MATCH", "subject_ref": "r-a", "source_ref": "r-a"}],
         provenance_refs=["r-a"],
         recompute_refs=["rr-current"],
         unresolved_refs=[],
@@ -76,8 +76,8 @@ def test_high_risk_seed_requires_anchor_and_equivalence_contract():
             factorization=generative_factorization(),
             anchors=[],
             structure=[{"relation": "depends_on", "source_ref": "r-a", "target_ref": "r-b"}],
-            generators=[{"kind": "RECONSTRUCTION_RECIPE", "generator_ref": "synthetic://recipe/1"}],
-            obligations=[{"kind": "ANCHOR_MUST_MATCH", "subject_ref": "r-a"}],
+            generators=[{"kind": "RECONSTRUCTION_RECIPE", "generator_ref": "synthetic://recipe/1", "source_ref": "r-a"}],
+            obligations=[{"kind": "ANCHOR_MUST_MATCH", "subject_ref": "r-a", "source_ref": "r-a"}],
             provenance_refs=["r-a"],
             recomputation_refs=[recompute_ref()],
             unresolved_components=[],
@@ -170,3 +170,47 @@ def test_unresolved_factorization_refs_must_remain_explicit_or_be_resolved():
         recomputation_refs=[], unresolved_components=["r-u"], equivalence_contract=None
     )
     assert seed.to_dict()["unresolved_components"] == ["r-u"]
+
+
+def test_seed_cannot_silently_drop_factorization_generator_or_obligation():
+    f = generative_factorization()
+    with pytest.raises(CpsValidationError):
+        build_cognitive_seed_proposal(
+            factorization=f,
+            anchors=["r-a"],
+            structure=f.to_dict()["structure"],
+            generators=[],
+            obligations=f.to_dict()["obligations"],
+            provenance_refs=["r-a"],
+            recomputation_refs=[recompute_ref()],
+            unresolved_components=[],
+            equivalence_contract=eq_contract(),
+        )
+    with pytest.raises(CpsValidationError):
+        build_cognitive_seed_proposal(
+            factorization=f,
+            anchors=["r-a"],
+            structure=f.to_dict()["structure"],
+            generators=f.to_dict()["generators"],
+            obligations=[],
+            provenance_refs=["r-a"],
+            recomputation_refs=[recompute_ref()],
+            unresolved_components=[],
+            equivalence_contract=eq_contract(),
+        )
+
+
+def test_seed_cannot_replace_factorization_structure_with_unrelated_component():
+    f = generative_factorization()
+    with pytest.raises(CpsValidationError):
+        build_cognitive_seed_proposal(
+            factorization=f,
+            anchors=["r-a"],
+            structure=[{"relation": "unrelated", "source_ref": "r-a", "target_ref": "r-z"}],
+            generators=f.to_dict()["generators"],
+            obligations=f.to_dict()["obligations"],
+            provenance_refs=["r-a"],
+            recomputation_refs=[recompute_ref()],
+            unresolved_components=[],
+            equivalence_contract=eq_contract(),
+        )

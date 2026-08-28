@@ -21,6 +21,39 @@ def _error_key(error) -> tuple[str, ...]:
     return tuple(str(part) for part in error.absolute_path)
 
 
+def _validate_component_traceability(raw: dict[str, object]) -> None:
+    memory_refs = (
+        {str(x) for x in raw["source_refs"]}
+        | {str(x) for x in raw["anchors"]}
+        | {str(x) for x in raw["provenance_refs"]}
+        | {str(x) for x in raw["unresolved_refs"]}
+    )
+    assessment_refs = {str(x) for x in raw["source_assessments"]}
+    recompute_refs = {str(x) for x in raw["recompute_refs"]}
+
+    trace_specs = {
+        "source_ref": memory_refs,
+        "provenance_ref": {str(x) for x in raw["provenance_refs"]},
+        "assessment_ref": assessment_refs,
+        "recompute_ref": recompute_refs,
+    }
+    for family in ("structure", "generators", "obligations"):
+        for index, component in enumerate(raw[family]):
+            if not isinstance(component, dict):
+                raise CpsValidationError(f"{family}.{index}: component must be an object")
+            present = [key for key in trace_specs if key in component]
+            if not present:
+                raise CpsValidationError(
+                    f"{family}.{index}: factorized component lacks source/provenance/assessment/recompute trace reference"
+                )
+            for key in present:
+                value = component[key]
+                if not isinstance(value, str) or not value:
+                    raise CpsValidationError(f"{family}.{index}.{key}: trace reference must be a non-empty string")
+                if value not in trace_specs[key]:
+                    raise CpsValidationError(f"{family}.{index}.{key}: unknown trace reference {value!r}")
+
+
 @dataclass(frozen=True)
 class FactorizationProposal:
     _raw: dict[str, Any]
@@ -33,6 +66,7 @@ class FactorizationProposal:
             error = errors[0]
             path = ".".join(str(part) for part in error.absolute_path) or "$"
             raise CpsValidationError(f"{path}: {error.message}")
+        _validate_component_traceability(candidate)
         return cls(candidate)
 
     def to_dict(self) -> dict[str, object]:

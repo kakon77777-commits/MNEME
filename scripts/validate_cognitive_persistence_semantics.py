@@ -229,8 +229,8 @@ def run_gate() -> dict[str, object]:
         source_refs=["cps-generative"],
         anchors=["cps-generative"],
         structure=[{"relation": "depends_on", "source_ref": "cps-generative", "target_ref": "cps-decision"}],
-        generators=[{"kind": "RECONSTRUCTION_RECIPE", "generator_ref": "synthetic://recipe/cps"}],
-        obligations=[{"kind": "ANCHOR_MUST_MATCH", "subject_ref": "cps-generative"}],
+        generators=[{"kind": "RECONSTRUCTION_RECIPE", "generator_ref": "synthetic://recipe/cps", "source_ref": "cps-generative"}],
+        obligations=[{"kind": "ANCHOR_MUST_MATCH", "subject_ref": "cps-generative", "source_ref": "cps-generative"}],
         provenance_refs=["cps-generative"],
         recompute_refs=["rr-cps-current"],
         unresolved_refs=[],
@@ -242,6 +242,21 @@ def run_gate() -> dict[str, object]:
     _expect_cps_error(
         lambda: validate_factorization_sources(tampered_model, [generative]),
         "C7-unknown-assessment-reference-rejected",
+        controls,
+    )
+    _expect_cps_error(
+        lambda: build_factorization_proposal(
+            assessments=[generative],
+            source_refs=["cps-generative"],
+            anchors=["cps-generative"],
+            structure=[{"relation": "depends_on", "target_ref": "cps-decision"}],
+            generators=[],
+            obligations=[],
+            provenance_refs=["cps-generative"],
+            recompute_refs=[],
+            unresolved_refs=[],
+        ),
+        "C7-untraceable-factorized-component-rejected",
         controls,
     )
     cases["C7"] = "PASS"
@@ -272,6 +287,21 @@ def run_gate() -> dict[str, object]:
             equivalence_contract=eq,
         ),
         "C8-generative-seed-without-anchor-rejected",
+        controls,
+    )
+    _expect_cps_error(
+        lambda: build_cognitive_seed_proposal(
+            factorization=factorization,
+            anchors=["cps-generative"],
+            structure=factorization.to_dict()["structure"],
+            generators=[],
+            obligations=factorization.to_dict()["obligations"],
+            provenance_refs=["cps-generative"],
+            recomputation_refs=[rr],
+            unresolved_components=[],
+            equivalence_contract=eq,
+        ),
+        "C8-factorization-generator-replacement-rejected",
         controls,
     )
     cases["C8"] = "PASS"

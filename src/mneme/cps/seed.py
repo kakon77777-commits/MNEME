@@ -81,6 +81,10 @@ def build_cognitive_seed_proposal(
     if missing_provenance:
         raise CpsValidationError("factorization provenance omitted: " + ", ".join(missing_provenance))
 
+    for name, supplied in (("structure", structure), ("generators", generators), ("obligations", obligations)):
+        if canonical_json_bytes(supplied) != canonical_json_bytes(fact[name]):
+            raise CpsValidationError(f"seed {name} must exactly preserve source factorization components")
+
     resolved_refs = set(anchors) | set(provenance_refs) | set(unresolved_components)
     missing_unresolved = sorted(set(fact["unresolved_refs"]) - resolved_refs)
     if missing_unresolved:

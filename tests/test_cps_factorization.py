@@ -140,3 +140,35 @@ def test_factorization_shape_rejects_authority_or_unknown_fields(mutator):
     mutator(raw)
     with pytest.raises(CpsValidationError):
         FactorizationProposal.from_dict(raw)
+
+
+def test_factorization_rejects_untraceable_components():
+    assessment = assess_record(record("r-struct"), AssessmentContext(structural_dependency=True))
+    with pytest.raises(CpsValidationError):
+        build_factorization_proposal(
+            assessments=[assessment],
+            source_refs=["r-struct"],
+            anchors=["r-struct"],
+            structure=[{"relation": "depends_on", "target_ref": "r-base"}],
+            generators=[],
+            obligations=[],
+            provenance_refs=["r-struct"],
+            recompute_refs=[],
+            unresolved_refs=[],
+        )
+
+
+def test_factorization_rejects_component_source_ref_outside_declared_sources():
+    assessment = assess_record(record("r-struct"), AssessmentContext(structural_dependency=True))
+    with pytest.raises(CpsValidationError):
+        build_factorization_proposal(
+            assessments=[assessment],
+            source_refs=["r-struct"],
+            anchors=["r-struct"],
+            structure=[{"relation": "depends_on", "source_ref": "r-other", "target_ref": "r-base"}],
+            generators=[],
+            obligations=[],
+            provenance_refs=["r-struct"],
+            recompute_refs=[],
+            unresolved_refs=[],
+        )
