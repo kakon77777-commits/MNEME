@@ -604,6 +604,24 @@ def test_unrelated_managed_blocks_and_mixed_eol_are_byte_preserved(tmp_path):
     assert result.outside_bytes_preserved is True
 
 
+def test_concurrent_reader_sees_complete_old_or_new_file(tmp_path):
+    target = copy_fixture(
+        tmp_path, "user-memory-other-blocks-mixed-eol.md"
+    )
+    old_bytes = target.read_bytes()
+    new_bytes = expected_bytes_with_mneme_block(
+        old_bytes, projection_path(tmp_path)
+    )
+    observations = read_while_atomic_import_replaces(
+        target,
+        lambda: managed_import(tmp_path).apply(
+            plan_for(target, projection_path(tmp_path)), authorization()
+        ),
+    )
+    assert observations
+    assert set(observations) <= {old_bytes, new_bytes}
+
+
 @pytest.mark.parametrize("fixture", ["partial-begin.md", "partial-end.md", "duplicate.md", "nested.md"])
 def test_malformed_mneme_markers_refuse_without_mutation(tmp_path, fixture):
     target = copy_fixture(tmp_path, fixture)
@@ -643,8 +661,8 @@ Run:
 python -B -m pytest -q tests/test_claude_import.py tests/test_claude_projection.py
 ```
 
-Expected: CGM-013 through CGM-020 plus CGM-025 pass; actual user memory is
-never opened.
+Expected: CGM-013 through CGM-020 plus CGM-025 and CGM-028 pass; actual user
+memory is never opened.
 
 - [ ] **Step 5: Commit Task 6**
 
@@ -652,6 +670,13 @@ never opened.
 git add src/mneme/claude_import.py src/mneme/errors.py tests/fixtures/claude tests/test_claude_import.py
 git commit -m "feat: manage Claude memory import without byte loss"
 ```
+
+- [ ] **Step 6: Stop for a dedicated Lares managed-import review**
+
+Provide exact Task 6 head/tree, focused/full tests, synthetic mixed-EOL fixture
+hashes, unrelated-block preservation evidence, concurrent-reader observations,
+path/effect counters and clean state. Do not start Task 7 until the Claude-side
+review has no blocking finding.
 
 ---
 
@@ -755,7 +780,7 @@ git commit -m "feat: orchestrate synthetic Claude global activation"
 **Interfaces:**
 - Produces `validate_claude_global_memory(root: Path) ->
   ClaudeGlobalAcceptanceReport`.
-- Executes CGM-001 through CGM-022 and CGM-025.
+- Executes CGM-001 through CGM-022, CGM-025 and CGM-028.
 - Records CGM-023, CGM-024, CGM-026 and CGM-027 as
   `NOT_RUN_LOCAL_ACTIVATION_REQUIRED`.
 
@@ -764,7 +789,9 @@ git commit -m "feat: orchestrate synthetic Claude global activation"
 ```python
 def test_cgm_acceptance_has_exact_case_ownership(tmp_path):
     report = validate_claude_global_memory(tmp_path)
-    synthetic = {f"CGM-{index:03d}" for index in range(1, 23)} | {"CGM-025"}
+    synthetic = {f"CGM-{index:03d}" for index in range(1, 23)} | {
+        "CGM-025", "CGM-028"
+    }
     local = {"CGM-023", "CGM-024", "CGM-026", "CGM-027"}
     assert {case.case_id for case in report.cases} == synthetic | local
     assert all(case.executed and case.passed for case in report.cases if case.case_id in synthetic)
@@ -913,7 +940,8 @@ CGM-023/024/026/027 and the first exact global transaction.
 - Single-writer and record-ID counterexamples: Task 2.
 - 16,000-byte whole-record projection and required records: Task 4.
 - Atomic projection target publication: Task 5.
-- Exact MNEME marker, unrelated managed blocks and mixed line endings: Task 6.
+- Exact MNEME marker, unrelated managed blocks, mixed line endings and
+  concurrent-reader atomicity: Task 6.
 - Manual authority and no-real-target hard stop: Task 7.
 - CGM-001..CGM-027 ownership, deterministic evidence and effect controls:
   Task 8.

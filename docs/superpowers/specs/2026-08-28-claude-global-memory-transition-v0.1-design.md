@@ -232,6 +232,9 @@ Rules:
 - duplicate, nested, malformed or partially present markers refuse mutation;
 - first insertion and every replacement bind the exact pre-image digest;
 - replacement is atomic and followed by byte-for-byte readback;
+- a concurrent filesystem reader may observe either the complete old file or
+  the complete new file, never torn/intermediate bytes; an already-loaded
+  Claude context may nevertheless remain stale and is governed by CGM-027;
 - a create-new local evidence receipt records before/after digests, projection
   digest and operation outcome;
 - the receipt does not copy the user's full `CLAUDE.md` content.
@@ -357,6 +360,7 @@ the implementation candidate is accepted.
 | Real 16,000-byte import behavior unmeasured | activation remains `import_unmeasured` |
 | Real 16,000-byte import is not loaded/visible | activation refused; lower budget requires a reviewed design delta |
 | Claude session predates activation | session remains `session_stale_unmeasured` until explicit restart/reload observation |
+| Concurrent reader overlaps atomic replace | reader observes complete old or complete new bytes; no torn content |
 
 No failure triggers automatic deletion, rollback of canonical history, private
 search, provider call or blind retry.
@@ -434,6 +438,7 @@ explicit local activation authority.
 | CGM-025 | Existing unrelated managed blocks and mixed line endings | all outside bytes preserved exactly |
 | CGM-026 | Real 16,000-byte imported projection on target host | loaded/visible or activation refused with exact evidence |
 | CGM-027 | Session started before activation | stale/unmeasured until restart or explicit reload readback |
+| CGM-028 | Concurrent reader during atomic Claude-file replacement | complete old or complete new bytes only |
 
 Each negative control has an executed positive counterpart proving the named
 gate is live.
@@ -477,9 +482,10 @@ to become provider-neutral canonical records.
 
 ## 16. Success definition
 
-The code candidate succeeds when CGM-001 through CGM-022 plus CGM-025 pass with
-synthetic fixtures, installed-wheel resources work, the concurrent-writer and
-duplicate-ID counterexamples are closed, and no real/global file is touched.
+The code candidate succeeds when CGM-001 through CGM-022 plus CGM-025 and
+CGM-028 pass with synthetic fixtures, installed-wheel resources work, the
+concurrent-writer and duplicate-ID counterexamples are closed, and no
+real/global file is touched.
 
 CGM-023, CGM-024, CGM-026 and CGM-027 belong only to the later local activation
 gate because they require the real Claude Code user-memory consumer.
