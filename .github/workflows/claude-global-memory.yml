@@ -1,0 +1,74 @@
+name: Claude Global Memory Candidate
+
+on:
+  push:
+    paths:
+      - "src/**"
+      - "tests/**"
+      - "scripts/**"
+      - "docs/runtime/**"
+      - "pyproject.toml"
+      - ".github/workflows/claude-global-memory.yml"
+  pull_request:
+    paths:
+      - "src/**"
+      - "tests/**"
+      - "scripts/**"
+      - "docs/runtime/**"
+      - "pyproject.toml"
+      - ".github/workflows/claude-global-memory.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ["3.11"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install development candidate
+        run: python -m pip install -e ".[dev]"
+      - name: Full tests
+        run: python -B -m pytest -q -rs
+      - name: Legacy acceptance profiles
+        run: |
+          python -B scripts/validate_fresh_memory_core.py --output "${{ runner.temp }}/fresh.json"
+          python -B scripts/validate_memory_markdown_profile.py --output "${{ runner.temp }}/markdown.json"
+          python -B scripts/validate_cognitive_persistence_semantics.py --output "${{ runner.temp }}/cps.json"
+      - name: Claude global acceptance
+        run: >-
+          python -B scripts/validate_claude_global_memory.py
+          --root "${{ runner.temp }}/mneme-cgm-root"
+          --output "${{ runner.temp }}/claude-global.json"
+      - name: Clean wheel
+        run: >-
+          python -m pip wheel . --no-deps --no-build-isolation
+          --wheel-dir "${{ runner.temp }}/wheelhouse"
+      - name: Install exact wheel
+        shell: python
+        run: |
+          import pathlib
+          import subprocess
+          import sys
+          wheelhouse = pathlib.Path(r"${{ runner.temp }}") / "wheelhouse"
+          wheel = next(wheelhouse.glob("*.whl"))
+          subprocess.check_call([
+              sys.executable, "-m", "pip", "install", "--no-deps",
+              "--force-reinstall", str(wheel),
+          ])
+      - name: Installed CLI
+        run: >-
+          python -c "from mneme.claude_cli import main;
+          raise SystemExit(main(['verify']))"
+      - name: Compile
+        run: python -B -m compileall -q src tests
