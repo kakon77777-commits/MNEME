@@ -128,3 +128,8 @@ def load_profile(path: Path) -> MemoryMarkdownProfile:
 def load_builtin_evemiss_profile() -> MemoryMarkdownProfile:
     root = Path(__file__).resolve().parents[2]
     return load_profile(root / "profiles" / "memory-markdown" / "evemiss-residence-0.1.json")
+
+
+def load_builtin_evemiss_profile_v02() -> MemoryMarkdownProfile:
+    root = Path(__file__).resolve().parents[2]
+    return load_profile(root / "profiles" / "memory-markdown" / "evemiss-residence-0.2.json")
