@@ -7,14 +7,15 @@ from dataclasses import dataclass
 from pathlib import Path, PureWindowsPath
 
 from .canonical import canonical_json_bytes, sha256_domain
+from .claude_authority import VerifiedClaudeWriteContext
 from .claude_contracts import (
     CLAUDE_GLOBAL_NONCLAIMS,
     ClaudeGlobalProjectionManifest,
     ClaudeImportPlan,
     ClaudeImportReceipt,
-    LocalManualWriteAuthorization,
 )
 from .claude_projection import (
+    VerifiedClaudePublication,
     _file_ref,
     _fsync_directory,
     _has_git_ancestor,
@@ -172,12 +173,18 @@ class ClaudeManagedImport:
     def apply(
         self,
         plan: PreparedClaudeImport,
-        authorization: LocalManualWriteAuthorization,
+        context: VerifiedClaudeWriteContext,
+        publication: VerifiedClaudePublication,
     ) -> ClaudeImportReceipt:
         if not isinstance(plan, PreparedClaudeImport):
             raise ClaudeContractError("prepared import type is invalid")
         plan.verify()
-        self._validate_authorization(authorization)
+        if not isinstance(context, VerifiedClaudeWriteContext):
+            raise ManualAuthorityError("verified Claude write context is required")
+        if not isinstance(publication, VerifiedClaudePublication):
+            raise ManualAuthorityError("verified publication capability is required")
+        context.verify_projection(plan.manifest)
+        self._validate_publication(plan, context, publication)
         projection = self._validate_projection(plan.projection)
         user_memory = self._validate_user_memory(plan.user_memory)
         if _file_ref(projection) != plan.contract.projection_path_ref:
@@ -191,13 +198,16 @@ class ClaudeManagedImport:
             StoreWriterLock(self._projection_lock),
             StoreWriterLock(self._import_lock),
         ):
-            return self._apply_locked(plan, authorization)
+            return self._apply_locked(plan, context, publication)
 
     def _apply_locked(
         self,
         plan: PreparedClaudeImport,
-        authorization: LocalManualWriteAuthorization,
+        context: VerifiedClaudeWriteContext,
+        publication: VerifiedClaudePublication,
     ) -> ClaudeImportReceipt:
+        context.verify_projection(plan.manifest)
+        self._validate_publication(plan, context, publication)
         projection = self._validate_projection(plan.projection)
         user_memory = self._validate_user_memory(plan.user_memory)
         projection_bytes, projection_digest = self._read_file(
@@ -244,11 +254,18 @@ class ClaudeManagedImport:
         if readback != desired or after_digest != _sha256_bytes(desired):
             raise ClaudeContractError("managed import readback mismatch")
 
+        authorization = context.authorization
         receipt_identity = {
             "import_plan_ref": plan.contract.plan_id,
             "import_plan_digest": plan.contract.digest,
             "authorization_ref": authorization.authorization_id,
             "authorization_digest": authorization.digest,
+            "transaction_ref": context.transaction_ref,
+            "transaction_digest": context.transaction_digest,
+            "committed_head": context.committed_head,
+            "commit_receipt_digest": context.commit_receipt_digest,
+            "publication_receipt_ref": publication.receipt.receipt_id,
+            "publication_receipt_digest": publication.receipt.digest,
             "projection_ref": plan.contract.projection_ref,
             "projection_digest": plan.contract.projection_digest,
             "user_memory_ref": plan.contract.user_memory_ref,
@@ -274,14 +291,25 @@ class ClaudeManagedImport:
         )
 
     @staticmethod
-    def _validate_authorization(
-        authorization: LocalManualWriteAuthorization,
+    def _validate_publication(
+        plan: PreparedClaudeImport,
+        context: VerifiedClaudeWriteContext,
+        publication: VerifiedClaudePublication,
     ) -> None:
-        if not isinstance(authorization, LocalManualWriteAuthorization):
-            raise ManualAuthorityError("local manual authorization type is invalid")
-        authorization.verify()
-        if not authorization.is_active:
-            raise ManualAuthorityError("local manual authorization is not active")
+        publication.verify_context(context)
+        receipt = publication.receipt
+        if receipt.projection_ref != plan.contract.projection_ref:
+            raise ManualAuthorityError("publication projection ref mismatch")
+        if receipt.projection_digest != plan.contract.projection_digest:
+            raise ManualAuthorityError("publication projection digest mismatch")
+        if receipt.target_ref != plan.contract.projection_path_ref:
+            raise ManualAuthorityError("publication target ref mismatch")
+        if receipt.target_after_sha256 != plan.contract.projection_content_sha256:
+            raise ManualAuthorityError("publication content digest mismatch")
+        if receipt.readback_sha256 != plan.contract.projection_content_sha256:
+            raise ManualAuthorityError("publication readback digest mismatch")
+        if receipt.content_bytes != plan.contract.projection_content_bytes:
+            raise ManualAuthorityError("publication content byte mismatch")
 
     def _validate_projection(self, projection: Path) -> Path:
         root = self._validate_root(self._runtime_root, "runtime root")

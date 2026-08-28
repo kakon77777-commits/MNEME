@@ -118,6 +118,24 @@ class MemoryStore:
         self.initialize()
         yield from self._iter_committed_transactions_unlocked()
 
+    def verify_current_transaction(
+        self,
+        tx: TransactionProposal,
+        receipt: CommitReceipt,
+    ) -> bool:
+        if not self.root.exists() or not self._head_path.exists():
+            raise StoreIntegrityError("committed store evidence is unavailable")
+        before = self.head()
+        if before != receipt.new_head:
+            raise StoreIntegrityError("commit receipt is not the current head")
+        reachable = list(self._iter_committed_transactions_unlocked())
+        after = self.head()
+        if after != before:
+            raise StoreIntegrityError("HEAD changed during committed readback")
+        if not reachable or reachable[-1] != tx.to_dict():
+            raise StoreIntegrityError("current transaction readback mismatch")
+        return True
+
     def _iter_committed_transactions_unlocked(self) -> Iterator[dict[str, object]]:
         target_head = self.head()
         if target_head == "GENESIS":

@@ -21,6 +21,7 @@ from mneme.claude_import import (
     ClaudeManagedImport,
     PreparedClaudeImport,
 )
+from mneme.claude_projection import ClaudeProjectionPublisher
 from mneme.errors import (
     AtomicReplaceUnavailableError,
     ClaudePathBoundaryError,
@@ -29,6 +30,8 @@ from mneme.errors import (
     ManualAuthorityError,
     StaleTargetError,
 )
+from tests.test_claude_authority import committed_context
+from tests.test_claude_projection import projection_for_context
 from tests.windows_junction import create_windows_junction
 
 FIXTURE_ROOT = Path(__file__).parent / "fixtures" / "claude"
@@ -39,21 +42,31 @@ def sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def manifest(content: bytes = PROJECTION_BYTES) -> ClaudeGlobalProjectionManifest:
+def manifest(
+    content: bytes = PROJECTION_BYTES,
+    *,
+    context=None,
+) -> ClaudeGlobalProjectionManifest:
+    source_head = context.committed_head if context is not None else "b" * 64
+    record_id = (
+        str(context.transaction.to_dict()["records"][0]["record_id"])
+        if context is not None
+        else "record:synthetic:core"
+    )
     return ClaudeGlobalProjectionManifest.sealed(
         {
             "manifest_version": "mneme.claude-global-projection-manifest/0.1",
             "projection_ref": "projection:synthetic:managed-import",
             "request_ref": "request:synthetic:managed-import",
             "request_digest": "a" * 64,
-            "source_head": "b" * 64,
+            "source_head": source_head,
             "route_id": "route://global/tier0",
             "byte_budget": 16000,
             "content_bytes": len(content),
             "content_sha256": sha256(content),
-            "included_record_ids": ["record:synthetic:core"],
+            "included_record_ids": [record_id],
             "omitted": [],
-            "required_record_ids": ["record:synthetic:core"],
+            "required_record_ids": [record_id],
             "generator_version": "mneme.claude-projection/0.1",
             "not_claimed": list(CLAUDE_GLOBAL_NONCLAIMS),
         }
@@ -80,17 +93,29 @@ def authorization(*, status: str = "active") -> LocalManualWriteAuthorization:
 
 
 def environment(tmp_path: Path, *, user_bytes: bytes | None = b"Hand-authored.\n"):
+    _, _, _, context = committed_context(tmp_path / "context")
     runtime_root = tmp_path / "runtime"
     projection = runtime_root / "claude" / "MNEME_GLOBAL.md"
     projection.parent.mkdir(parents=True)
-    projection.write_bytes(PROJECTION_BYTES)
+    result = projection_for_context(context, PROJECTION_BYTES)
+    publisher = ClaudeProjectionPublisher(runtime_root)
+    publication_plan = publisher.plan(result, projection, None)
+    publication = publisher.publish(publication_plan, context)
     user_root = tmp_path / "synthetic-user"
     user_memory = user_root / ".claude" / "CLAUDE.md"
     user_memory.parent.mkdir(parents=True)
     if user_bytes is not None:
         user_memory.write_bytes(user_bytes)
-    selected = ClaudeManagedImport(runtime_root, user_root, manifest())
-    return selected, projection, user_memory, runtime_root, user_root
+    selected = ClaudeManagedImport(runtime_root, user_root, result.manifest)
+    return (
+        selected,
+        projection,
+        user_memory,
+        runtime_root,
+        user_root,
+        context,
+        publication,
+    )
 
 
 def expected_block(projection: Path) -> bytes:
@@ -115,8 +140,63 @@ def file_snapshot(root: Path) -> dict[str, bytes]:
     }
 
 
+def bound_environment(tmp_path: Path, *, user_bytes: bytes = b"Hand-authored.\n"):
+    importer, projection, user_memory, _, _, context, publication = environment(
+        tmp_path,
+        user_bytes=user_bytes,
+    )
+    import_plan = importer.plan(user_memory, projection, sha256(user_bytes))
+    return importer, import_plan, context, publication, user_memory
+
+
+def test_import_requires_exact_verified_publication_capability(tmp_path):
+    importer, plan, context, publication, user_memory = bound_environment(tmp_path)
+    before = user_memory.read_bytes()
+
+    receipt = importer.apply(plan, context, publication)
+
+    assert user_memory.read_bytes() != before
+    assert receipt.transaction_ref == context.transaction_ref
+    assert receipt.transaction_digest == context.transaction_digest
+    assert receipt.committed_head == context.committed_head
+    assert receipt.commit_receipt_digest == context.commit_receipt_digest
+    assert receipt.publication_receipt_ref == publication.receipt.receipt_id
+    assert receipt.publication_receipt_digest == publication.receipt.digest
+
+
+def test_hand_written_projection_without_publication_capability_is_refused(tmp_path):
+    importer, plan, context, _, user_memory = bound_environment(tmp_path)
+    before = user_memory.read_bytes()
+
+    with pytest.raises(ManualAuthorityError, match="publication capability"):
+        importer.apply(plan, context, None)
+
+    assert user_memory.read_bytes() == before
+
+
+def test_self_sealed_publication_receipt_is_not_a_runtime_capability(tmp_path):
+    importer, plan, context, publication, user_memory = bound_environment(tmp_path)
+    before = user_memory.read_bytes()
+
+    with pytest.raises(ManualAuthorityError, match="publication capability"):
+        importer.apply(plan, context, publication.receipt)
+
+    assert user_memory.read_bytes() == before
+
+
+def test_cross_projection_publication_capability_is_refused(tmp_path):
+    importer, plan, context, _, user_memory = bound_environment(tmp_path / "first")
+    _, _, _, unrelated, _ = bound_environment(tmp_path / "second")
+    before = user_memory.read_bytes()
+
+    with pytest.raises((ManualAuthorityError, StaleTargetError), match="publication"):
+        importer.apply(plan, context, unrelated)
+
+    assert user_memory.read_bytes() == before
+
+
 def test_plan_is_read_only_and_binds_projection_user_preimage(tmp_path):
-    selected, projection, user_memory, _, _ = environment(tmp_path)
+    selected, projection, user_memory, _, _, _, _ = environment(tmp_path)
     before_projection = projection.read_bytes()
     before_user = user_memory.read_bytes()
     before_tree = file_snapshot(tmp_path)
@@ -127,15 +207,18 @@ def test_plan_is_read_only_and_binds_projection_user_preimage(tmp_path):
     assert file_snapshot(tmp_path) == before_tree
     assert projection.read_bytes() == before_projection
     assert user_memory.read_bytes() == before_user
-    assert prepared.contract.projection_ref == manifest().projection_ref
-    assert prepared.contract.projection_digest == manifest().digest
+    assert prepared.contract.projection_ref == selected._manifest.projection_ref
+    assert prepared.contract.projection_digest == selected._manifest.digest
     assert prepared.contract.projection_content_sha256 == sha256(PROJECTION_BYTES)
     assert prepared.contract.user_memory_preimage_sha256 == sha256(before_user)
     assert prepared.verify() is True
 
 
 def test_unrelated_managed_blocks_bom_and_mixed_eol_are_byte_preserved(tmp_path):
-    selected, projection, user_memory, _, _ = environment(tmp_path, user_bytes=None)
+    selected, projection, user_memory, _, _, context, publication = environment(
+        tmp_path,
+        user_bytes=None,
+    )
     shutil.copyfile(
         FIXTURE_ROOT / "user-memory-other-blocks-mixed-eol.md",
         user_memory,
@@ -147,7 +230,8 @@ def test_unrelated_managed_blocks_bom_and_mixed_eol_are_byte_preserved(tmp_path)
 
     receipt = selected.apply(
         plan_for(selected, user_memory, projection),
-        authorization(),
+        context,
+        publication,
     )
 
     after = user_memory.read_bytes()
@@ -160,7 +244,7 @@ def test_unrelated_managed_blocks_bom_and_mixed_eol_are_byte_preserved(tmp_path)
 
 
 def test_existing_exact_block_is_replaced_without_touching_outside_bytes(tmp_path):
-    selected, projection, user_memory, _, _ = environment(tmp_path)
+    selected, projection, user_memory, _, _, context, publication = environment(tmp_path)
     old_projection = tmp_path / "old" / "MNEME_GLOBAL.md"
     prefix = b"\xef\xbb\xbfHeader\r\n<!-- BEGIN EML X -->\nbody\r\n<!-- END EML X -->\n"
     suffix = b"Tail\r\n"
@@ -169,7 +253,8 @@ def test_existing_exact_block_is_replaced_without_touching_outside_bytes(tmp_pat
 
     receipt = selected.apply(
         plan_for(selected, user_memory, projection),
-        authorization(),
+        context,
+        publication,
     )
 
     assert user_memory.read_bytes() == prefix + expected_block(projection) + suffix
@@ -178,13 +263,14 @@ def test_existing_exact_block_is_replaced_without_touching_outside_bytes(tmp_pat
 
 
 def test_existing_exact_same_block_is_idempotent(tmp_path):
-    selected, projection, user_memory, _, _ = environment(tmp_path)
+    selected, projection, user_memory, _, _, context, publication = environment(tmp_path)
     before = b"Header\r\n" + expected_block(projection) + b"Tail\n"
     user_memory.write_bytes(before)
 
     receipt = selected.apply(
         plan_for(selected, user_memory, projection),
-        authorization(),
+        context,
+        publication,
     )
 
     assert user_memory.read_bytes() == before
@@ -209,7 +295,7 @@ def test_malformed_partial_duplicate_nested_or_near_markers_refuse(
     tmp_path,
     malformed,
 ):
-    selected, projection, user_memory, _, _ = environment(
+    selected, projection, user_memory, _, _, _, _ = environment(
         tmp_path,
         user_bytes=malformed,
     )
@@ -232,31 +318,34 @@ def test_malformed_partial_duplicate_nested_or_near_markers_refuse(
     ],
 )
 def test_import_cannot_be_inserted_or_found_inside_code_fence(tmp_path, body):
-    selected, projection, user_memory, _, _ = environment(tmp_path, user_bytes=body)
+    selected, projection, user_memory, _, _, _, _ = environment(
+        tmp_path,
+        user_bytes=body,
+    )
     with pytest.raises(ManagedBlockConflictError, match="fence"):
         plan_for(selected, user_memory, projection)
     assert user_memory.read_bytes() == body
 
 
 def test_stale_user_memory_refuses_without_overwriting_newer_bytes(tmp_path):
-    selected, projection, user_memory, _, _ = environment(tmp_path)
+    selected, projection, user_memory, _, _, context, publication = environment(tmp_path)
     prepared = plan_for(selected, user_memory, projection)
     user_memory.write_bytes(b"newer hand-authored bytes")
 
     with pytest.raises(StaleTargetError, match="user memory"):
-        selected.apply(prepared, authorization())
+        selected.apply(prepared, context, publication)
 
     assert user_memory.read_bytes() == b"newer hand-authored bytes"
 
 
 def test_changed_projection_refuses_without_mutating_user_memory(tmp_path):
-    selected, projection, user_memory, _, _ = environment(tmp_path)
+    selected, projection, user_memory, _, _, context, publication = environment(tmp_path)
     prepared = plan_for(selected, user_memory, projection)
     before_user = user_memory.read_bytes()
     projection.write_bytes(b"changed projection")
 
     with pytest.raises(StaleTargetError, match="projection"):
-        selected.apply(prepared, authorization())
+        selected.apply(prepared, context, publication)
 
     assert projection.read_bytes() == b"changed projection"
     assert user_memory.read_bytes() == before_user
@@ -264,21 +353,29 @@ def test_changed_projection_refuses_without_mutating_user_memory(tmp_path):
 
 @pytest.mark.parametrize("status", ["revoked", "expired", "suspended"])
 def test_inactive_authority_refuses_before_user_memory_mutation(tmp_path, status):
-    selected, projection, user_memory, _, _ = environment(tmp_path)
+    _, _, user_memory, _, _, context, _ = environment(tmp_path)
     before = user_memory.read_bytes()
+    raw = context.authorization.to_dict()
+    raw["status"] = status
+    inactive = LocalManualWriteAuthorization.sealed(raw)
     with pytest.raises(ManualAuthorityError, match="active"):
-        selected.apply(
-            plan_for(selected, user_memory, projection),
-            authorization(status=status),
+        type(context).bind(
+            context.store,
+            context.transaction,
+            context.commit_receipt,
+            inactive,
         )
     assert user_memory.read_bytes() == before
 
 
 def test_new_user_memory_file_can_be_created_inside_explicit_root(tmp_path):
-    selected, projection, user_memory, _, _ = environment(tmp_path, user_bytes=None)
+    selected, projection, user_memory, _, _, context, publication = environment(
+        tmp_path,
+        user_bytes=None,
+    )
     prepared = selected.plan(user_memory, projection, None)
 
-    receipt = selected.apply(prepared, authorization())
+    receipt = selected.apply(prepared, context, publication)
 
     assert user_memory.read_bytes() == expected_block(projection)
     assert receipt.user_memory_before_sha256 is None
@@ -286,19 +383,28 @@ def test_new_user_memory_file_can_be_created_inside_explicit_root(tmp_path):
 
 
 def test_crash_before_replace_retains_old_user_memory_and_cleans_temp(tmp_path):
-    _, projection, user_memory, runtime_root, user_root = environment(tmp_path)
+    (
+        selected,
+        projection,
+        user_memory,
+        runtime_root,
+        user_root,
+        context,
+        publication,
+    ) = environment(tmp_path)
     before = user_memory.read_bytes()
     crashing = ClaudeManagedImport(
         runtime_root,
         user_root,
-        manifest(),
+        selected._manifest,
         crash_at="before_replace",
     )
 
     with pytest.raises(InjectedCrash, match="before_replace"):
         crashing.apply(
             plan_for(crashing, user_memory, projection),
-            authorization(),
+            context,
+            publication,
         )
 
     assert user_memory.read_bytes() == before
@@ -306,19 +412,28 @@ def test_crash_before_replace_retains_old_user_memory_and_cleans_temp(tmp_path):
 
 
 def test_crash_after_replace_has_new_bytes_and_no_success_receipt(tmp_path):
-    _, projection, user_memory, runtime_root, user_root = environment(tmp_path)
+    (
+        selected,
+        projection,
+        user_memory,
+        runtime_root,
+        user_root,
+        context,
+        publication,
+    ) = environment(tmp_path)
     before = user_memory.read_bytes()
     crashing = ClaudeManagedImport(
         runtime_root,
         user_root,
-        manifest(),
+        selected._manifest,
         crash_at="after_replace",
     )
 
     with pytest.raises(InjectedCrash, match="after_replace"):
         crashing.apply(
             plan_for(crashing, user_memory, projection),
-            authorization(),
+            context,
+            publication,
         )
 
     assert user_memory.read_bytes() == expected_insert(before, projection)
@@ -326,7 +441,7 @@ def test_crash_after_replace_has_new_bytes_and_no_success_receipt(tmp_path):
 
 
 def test_concurrent_reader_sees_only_complete_old_or_new_bytes(tmp_path, monkeypatch):
-    selected, projection, user_memory, _, _ = environment(tmp_path)
+    selected, projection, user_memory, _, _, context, publication = environment(tmp_path)
     prepared = plan_for(selected, user_memory, projection)
     old_bytes = user_memory.read_bytes()
     new_bytes = expected_insert(old_bytes, projection)
@@ -343,7 +458,7 @@ def test_concurrent_reader_sees_only_complete_old_or_new_bytes(tmp_path, monkeyp
     observations: list[bytes] = []
 
     with ThreadPoolExecutor(max_workers=1) as pool:
-        future = pool.submit(selected.apply, prepared, authorization())
+        future = pool.submit(selected.apply, prepared, context, publication)
         assert replace_ready.wait(timeout=2)
         observations.extend(user_memory.read_bytes() for _ in range(50))
         allow_replace.set()
@@ -357,10 +472,14 @@ def test_concurrent_reader_sees_only_complete_old_or_new_bytes(tmp_path, monkeyp
 
 def test_receipt_contains_digests_not_user_memory_body(tmp_path):
     body = b"SYNTHETIC-SENSITIVE-HAND-AUTHORED-BODY\n"
-    selected, projection, user_memory, _, _ = environment(tmp_path, user_bytes=body)
+    selected, projection, user_memory, _, _, context, publication = environment(
+        tmp_path,
+        user_bytes=body,
+    )
     receipt = selected.apply(
         plan_for(selected, user_memory, projection),
-        authorization(),
+        context,
+        publication,
     )
     evidence = json.dumps(receipt.to_dict(), sort_keys=True)
     assert "SYNTHETIC-SENSITIVE-HAND-AUTHORED-BODY" not in evidence
@@ -368,7 +487,9 @@ def test_receipt_contains_digests_not_user_memory_body(tmp_path):
 
 
 def test_projection_and_user_memory_must_stay_inside_explicit_roots(tmp_path):
-    selected, projection, user_memory, runtime_root, user_root = environment(tmp_path)
+    selected, projection, user_memory, runtime_root, user_root, _, _ = environment(
+        tmp_path
+    )
     outside_projection = tmp_path / "outside-projection.md"
     outside_projection.write_bytes(PROJECTION_BYTES)
     outside_user = tmp_path / "outside-user" / "CLAUDE.md"
@@ -391,7 +512,7 @@ def test_projection_and_user_memory_must_stay_inside_explicit_roots(tmp_path):
 
 
 def test_ai_home_user_memory_root_is_refused_as_private(tmp_path):
-    selected, projection, _, _, _ = environment(tmp_path)
+    selected, projection, _, _, _, _, _ = environment(tmp_path)
     user_root = tmp_path / "AI_HOME"
     user_memory = user_root / ".claude" / "CLAUDE.md"
     user_memory.parent.mkdir(parents=True)
@@ -408,7 +529,7 @@ def test_ai_home_user_memory_root_is_refused_as_private(tmp_path):
 
 @pytest.mark.skipif(os.name != "nt", reason="Windows junction control")
 def test_windows_junction_projection_source_is_refused(tmp_path):
-    selected, _, user_memory, runtime_root, _ = environment(tmp_path)
+    selected, _, user_memory, runtime_root, _, _, _ = environment(tmp_path)
     real = runtime_root / "real-projection"
     real.mkdir()
     (real / "MNEME_GLOBAL.md").write_bytes(PROJECTION_BYTES)
@@ -425,7 +546,7 @@ def test_windows_junction_projection_source_is_refused(tmp_path):
 
 @pytest.mark.skipif(os.name != "nt", reason="Windows junction control")
 def test_windows_junction_user_memory_root_is_refused(tmp_path):
-    selected, projection, _, _, _ = environment(tmp_path)
+    selected, projection, _, _, _, _, _ = environment(tmp_path)
     real_user_root = tmp_path / "real-user"
     user_memory = real_user_root / ".claude" / "CLAUDE.md"
     user_memory.parent.mkdir(parents=True)
@@ -447,7 +568,7 @@ def test_windows_junction_user_memory_root_is_refused(tmp_path):
 
 
 def test_projection_path_control_character_is_rejected_during_plan(tmp_path):
-    selected, _, user_memory, runtime_root, _ = environment(tmp_path)
+    selected, _, user_memory, runtime_root, _, _, _ = environment(tmp_path)
     controlled = runtime_root / "line\nbreak" / "MNEME_GLOBAL.md"
 
     with pytest.raises(ClaudePathBoundaryError, match="control"):
@@ -459,7 +580,7 @@ def test_projection_path_control_character_is_rejected_during_plan(tmp_path):
 
 
 def test_hardlinked_user_memory_is_refused_without_mutation(tmp_path):
-    selected, projection, user_memory, _, _ = environment(tmp_path)
+    selected, projection, user_memory, _, _, _, _ = environment(tmp_path)
     sibling = user_memory.with_name("CLAUDE-copy.md")
     os.link(user_memory, sibling)
     before = user_memory.read_bytes()
@@ -472,7 +593,9 @@ def test_hardlinked_user_memory_is_refused_without_mutation(tmp_path):
 
 
 def test_hardlinked_import_writer_lock_is_refused_before_mutation(tmp_path):
-    selected, projection, user_memory, _, user_root = environment(tmp_path)
+    selected, projection, user_memory, _, user_root, context, publication = environment(
+        tmp_path
+    )
     prepared = plan_for(selected, user_memory, projection)
     before = user_memory.read_bytes()
     lock_path = user_root / ".mneme-claude-import.writer.lock"
@@ -480,14 +603,17 @@ def test_hardlinked_import_writer_lock_is_refused_before_mutation(tmp_path):
     os.link(lock_path, user_root / "import-lock-copy")
 
     with pytest.raises(ClaudePathBoundaryError, match="writer lock"):
-        selected.apply(prepared, authorization())
+        selected.apply(prepared, context, publication)
 
     assert user_memory.read_bytes() == before
 
 
 def test_invalid_utf8_user_memory_refuses_without_mutation(tmp_path):
     body = b"valid prefix\n\xff\xfeinvalid"
-    selected, projection, user_memory, _, _ = environment(tmp_path, user_bytes=body)
+    selected, projection, user_memory, _, _, _, _ = environment(
+        tmp_path,
+        user_bytes=body,
+    )
     with pytest.raises(ManagedBlockConflictError, match="UTF-8"):
         plan_for(selected, user_memory, projection)
     assert user_memory.read_bytes() == body
@@ -495,13 +621,13 @@ def test_invalid_utf8_user_memory_refuses_without_mutation(tmp_path):
 
 @pytest.mark.skipif(os.name != "nt", reason="Windows sharing behavior")
 def test_open_reader_handle_returns_typed_import_refusal(tmp_path):
-    selected, projection, user_memory, _, _ = environment(tmp_path)
+    selected, projection, user_memory, _, _, context, publication = environment(tmp_path)
     prepared = plan_for(selected, user_memory, projection)
     before = user_memory.read_bytes()
     handles = [user_memory.open("rb") for _ in range(4)]
     try:
         with pytest.raises(AtomicReplaceUnavailableError) as captured:
-            selected.apply(prepared, authorization())
+            selected.apply(prepared, context, publication)
     finally:
         for handle in handles:
             handle.close()

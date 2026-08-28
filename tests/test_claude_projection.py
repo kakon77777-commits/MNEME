@@ -10,6 +10,7 @@ from threading import Barrier, BrokenBarrierError, Event, Lock
 import pytest
 
 from mneme.adapters.claude import ClaudeGlobalProjectionResult
+from mneme.claude_authority import VerifiedClaudeWriteContext
 from mneme.claude_contracts import (
     CLAUDE_GLOBAL_NONCLAIMS,
     ClaudeGlobalProjectionManifest,
@@ -27,6 +28,19 @@ from mneme.errors import (
     ManualAuthorityError,
     StaleTargetError,
     StoreConflictError,
+)
+from mneme.store import MemoryStore
+from tests.test_claude_authority import (
+    authorization as bound_authorization,
+)
+from tests.test_claude_authority import (
+    committed_context,
+)
+from tests.test_claude_authority import (
+    record as authority_record,
+)
+from tests.test_claude_authority import (
+    transaction as authority_transaction,
 )
 from tests.windows_junction import create_windows_junction
 
@@ -50,6 +64,32 @@ def projection(content: bytes = b"# MNEME Projection\n\nSynthetic global memory.
             "included_record_ids": ["record:synthetic:core"],
             "omitted": [],
             "required_record_ids": ["record:synthetic:core"],
+            "generator_version": "mneme.claude-projection/0.1",
+            "not_claimed": list(CLAUDE_GLOBAL_NONCLAIMS),
+        }
+    )
+    return ClaudeGlobalProjectionResult(content=content, manifest=manifest)
+
+
+def projection_for_context(
+    context: VerifiedClaudeWriteContext,
+    content: bytes = b"# MNEME Projection\n\nSynthetic global memory.\n",
+) -> ClaudeGlobalProjectionResult:
+    record_id = str(context.transaction.to_dict()["records"][0]["record_id"])
+    manifest = ClaudeGlobalProjectionManifest.sealed(
+        {
+            "manifest_version": "mneme.claude-global-projection-manifest/0.1",
+            "projection_ref": "projection:synthetic:publisher-bound",
+            "request_ref": "request:synthetic:publisher-bound",
+            "request_digest": "a" * 64,
+            "source_head": context.committed_head,
+            "route_id": "route://global/tier0",
+            "byte_budget": 16000,
+            "content_bytes": len(content),
+            "content_sha256": sha256(content),
+            "included_record_ids": [record_id],
+            "omitted": [],
+            "required_record_ids": [record_id],
             "generator_version": "mneme.claude-projection/0.1",
             "not_claimed": list(CLAUDE_GLOBAL_NONCLAIMS),
         }
@@ -81,6 +121,67 @@ def runtime_fixture(tmp_path: Path):
     target = root / "claude" / "MNEME_GLOBAL.md"
     target.parent.mkdir(parents=True)
     return root, target
+
+
+def bound_publication(
+    tmp_path: Path,
+    *,
+    before: bytes | None = None,
+    crash_at: str | None = None,
+):
+    _, _, _, context = committed_context(tmp_path / "context")
+    root, target = runtime_fixture(tmp_path)
+    if before is not None:
+        target.write_bytes(before)
+    result = projection_for_context(context)
+    publisher = ClaudeProjectionPublisher(root, crash_at=crash_at)
+    expected = sha256(before) if before is not None else None
+    plan = publisher.plan(result, target, expected)
+    return publisher, plan, context, result, target
+
+
+def test_publish_requires_verified_committed_context(tmp_path):
+    publisher, plan, context, result, target = bound_publication(tmp_path)
+
+    publication = publisher.publish(plan, context)
+
+    assert publication.verify(context, plan) is True
+    assert publication.receipt.transaction_ref == context.transaction_ref
+    assert publication.receipt.transaction_digest == context.transaction_digest
+    assert publication.receipt.committed_head == context.committed_head
+    assert publication.receipt.commit_receipt_digest == context.commit_receipt_digest
+    assert publication.receipt.target_after_sha256 == sha256(result.content)
+    assert target.read_bytes() == result.content
+
+
+def test_raw_authorization_cannot_enter_publication_primitive(tmp_path):
+    publisher, plan, _, _, target = bound_publication(tmp_path)
+
+    with pytest.raises(ManualAuthorityError, match="context"):
+        publisher.publish(plan, authorization())
+
+    assert not target.exists()
+
+
+def test_unrelated_committed_context_cannot_publish(tmp_path):
+    publisher, plan, _, _, target = bound_publication(tmp_path / "first")
+    store = MemoryStore(tmp_path / "second" / "memory.mlfdir")
+    transaction = authority_transaction(
+        transaction_id="transaction:synthetic:unrelated-publisher",
+        selected_record=authority_record("record:synthetic:unrelated-publisher"),
+    )
+    receipt = store.commit(transaction)
+    unrelated = VerifiedClaudeWriteContext.bind(
+        store,
+        transaction,
+        receipt,
+        bound_authorization(transaction),
+    )
+
+    with pytest.raises(ManualAuthorityError, match="source head"):
+        publisher.publish(plan, unrelated)
+
+    assert not target.exists()
 
 
 def test_plan_is_read_only_and_binds_exact_result_and_target(tmp_path):
@@ -115,20 +216,19 @@ def test_plan_is_read_only_and_binds_exact_result_and_target(tmp_path):
 
 
 def test_publish_atomically_replaces_and_returns_bound_receipt(tmp_path):
-    root, target = runtime_fixture(tmp_path)
-    target.write_bytes(b"old projection")
-    result = projection()
-    approved = authorization()
-    publisher = ClaudeProjectionPublisher(root)
-    selected = publisher.plan(result, target, sha256(b"old projection"))
+    publisher, selected, context, result, target = bound_publication(
+        tmp_path,
+        before=b"old projection",
+    )
 
-    receipt = publisher.publish(selected, approved)
+    publication = publisher.publish(selected, context)
+    receipt = publication.receipt
 
     assert target.read_bytes() == result.content
     assert receipt.publication_plan_ref == selected.contract.plan_id
     assert receipt.publication_plan_digest == selected.contract.digest
-    assert receipt.authorization_ref == approved.authorization_id
-    assert receipt.authorization_digest == approved.digest
+    assert receipt.authorization_ref == context.authorization.authorization_id
+    assert receipt.authorization_digest == context.authorization.digest
     assert receipt.projection_ref == result.manifest.projection_ref
     assert receipt.projection_digest == result.manifest.digest
     assert receipt.target_before_sha256 == sha256(b"old projection")
@@ -139,14 +239,11 @@ def test_publish_atomically_replaces_and_returns_bound_receipt(tmp_path):
 
 
 def test_missing_target_is_created_and_fresh_same_content_plan_is_idempotent(tmp_path):
-    root, target = runtime_fixture(tmp_path)
-    result = projection()
-    publisher = ClaudeProjectionPublisher(root)
+    publisher, first_plan, context, result, target = bound_publication(tmp_path)
 
-    first_plan = publisher.plan(result, target, None)
-    first = publisher.publish(first_plan, authorization())
+    first = publisher.publish(first_plan, context).receipt
     second_plan = publisher.plan(result, target, sha256(result.content))
-    second = publisher.publish(second_plan, authorization())
+    second = publisher.publish(second_plan, context).receipt
 
     assert target.read_bytes() == result.content
     assert first.target_before_sha256 is None
@@ -156,27 +253,25 @@ def test_missing_target_is_created_and_fresh_same_content_plan_is_idempotent(tmp
 
 
 def test_stale_projection_target_refuses_without_mutation(tmp_path):
-    root, target = runtime_fixture(tmp_path)
-    target.write_bytes(b"old")
-    publisher = ClaudeProjectionPublisher(root)
-    selected = publisher.plan(projection(), target, sha256(b"old"))
+    publisher, selected, context, _, target = bound_publication(
+        tmp_path,
+        before=b"old",
+    )
     target.write_bytes(b"changed by another writer")
 
     with pytest.raises(StaleTargetError):
-        publisher.publish(selected, authorization())
+        publisher.publish(selected, context)
 
     assert target.read_bytes() == b"changed by another writer"
     assert not tuple(target.parent.glob(f".{target.name}.*"))
 
 
 def test_two_publishers_cannot_both_win_one_preimage_cas(tmp_path, monkeypatch):
-    root, target = runtime_fixture(tmp_path)
-    target.write_bytes(b"old")
-    selected = ClaudeProjectionPublisher(root).plan(
-        projection(),
-        target,
-        sha256(b"old"),
+    publisher, selected, context, _, _ = bound_publication(
+        tmp_path,
+        before=b"old",
     )
+    root = publisher._runtime_root
     original_replace = os.replace
     barrier = Barrier(2)
     order_guard = Lock()
@@ -201,12 +296,12 @@ def test_two_publishers_cannot_both_win_one_preimage_cas(tmp_path, monkeypatch):
         try:
             receipt = ClaudeProjectionPublisher(root).publish(
                 selected,
-                authorization(),
+                context,
             )
         except (StoreConflictError, StaleTargetError) as error:
             return "refused", type(error).__name__
         first_publish_done.set()
-        return "success", receipt.digest
+        return "success", receipt.receipt.digest
 
     with ThreadPoolExecutor(max_workers=2) as pool:
         outcomes = tuple(pool.map(lambda _: publish_once(), range(2)))
@@ -237,27 +332,28 @@ def test_missing_target_refuses_non_null_preimage(tmp_path):
 
 
 def test_crash_before_replace_retains_old_projection_and_cleans_temp(tmp_path):
-    root, target = runtime_fixture(tmp_path)
-    target.write_bytes(b"old")
-    publisher = ClaudeProjectionPublisher(root, crash_at="before_replace")
-    selected = publisher.plan(projection(), target, sha256(b"old"))
+    publisher, selected, context, _, target = bound_publication(
+        tmp_path,
+        before=b"old",
+        crash_at="before_replace",
+    )
 
     with pytest.raises(InjectedCrash, match="before_replace"):
-        publisher.publish(selected, authorization())
+        publisher.publish(selected, context)
 
     assert target.read_bytes() == b"old"
     assert not tuple(target.parent.glob(f".{target.name}.*"))
 
 
 def test_crash_after_replace_has_new_bytes_but_no_success_receipt(tmp_path):
-    root, target = runtime_fixture(tmp_path)
-    target.write_bytes(b"old")
-    result = projection()
-    publisher = ClaudeProjectionPublisher(root, crash_at="after_replace")
-    selected = publisher.plan(result, target, sha256(b"old"))
+    publisher, selected, context, result, target = bound_publication(
+        tmp_path,
+        before=b"old",
+        crash_at="after_replace",
+    )
 
     with pytest.raises(InjectedCrash, match="after_replace"):
-        publisher.publish(selected, authorization())
+        publisher.publish(selected, context)
 
     assert target.read_bytes() == result.content
     assert not tuple(target.parent.glob(f".{target.name}.*"))
@@ -265,26 +361,28 @@ def test_crash_after_replace_has_new_bytes_but_no_success_receipt(tmp_path):
 
 @pytest.mark.parametrize("status", ["revoked", "expired", "suspended"])
 def test_inactive_manual_authority_refuses_before_mutation(tmp_path, status):
-    root, target = runtime_fixture(tmp_path)
+    store, transaction, receipt, _ = committed_context(tmp_path / "context")
+    _, target = runtime_fixture(tmp_path)
     target.write_bytes(b"old")
-    publisher = ClaudeProjectionPublisher(root)
-    selected = publisher.plan(projection(), target, sha256(b"old"))
+    raw = bound_authorization(transaction).to_dict()
+    raw["status"] = status
+    inactive = LocalManualWriteAuthorization.sealed(raw)
 
     with pytest.raises(ManualAuthorityError, match="active"):
-        publisher.publish(selected, authorization(status=status))
+        VerifiedClaudeWriteContext.bind(store, transaction, receipt, inactive)
 
     assert target.read_bytes() == b"old"
 
 
 def test_tampered_prepared_content_refuses_before_mutation(tmp_path):
-    root, target = runtime_fixture(tmp_path)
-    target.write_bytes(b"old")
-    publisher = ClaudeProjectionPublisher(root)
-    selected = publisher.plan(projection(), target, sha256(b"old"))
+    publisher, selected, context, _, target = bound_publication(
+        tmp_path,
+        before=b"old",
+    )
     tampered = replace(selected, content=selected.content + b"tampered")
 
     with pytest.raises(ClaudeContractError, match="content"):
-        publisher.publish(tampered, authorization())
+        publisher.publish(tampered, context)
 
     assert target.read_bytes() == b"old"
 
@@ -384,16 +482,17 @@ def test_existing_hardlink_target_is_refused_without_mutation(tmp_path):
 
 
 def test_hardlinked_writer_lock_is_refused_before_target_mutation(tmp_path):
-    root, target = runtime_fixture(tmp_path)
-    target.write_bytes(b"old")
-    publisher = ClaudeProjectionPublisher(root)
-    selected = publisher.plan(projection(), target, sha256(b"old"))
+    publisher, selected, context, _, target = bound_publication(
+        tmp_path,
+        before=b"old",
+    )
+    root = publisher._runtime_root
     lock_path = root / ".claude-projection.writer.lock"
     lock_path.write_bytes(b"\0")
     os.link(lock_path, root / "lock-hardlink-copy")
 
     with pytest.raises(ClaudePathBoundaryError, match="writer lock"):
-        publisher.publish(selected, authorization())
+        publisher.publish(selected, context)
 
     assert target.read_bytes() == b"old"
 
@@ -421,14 +520,14 @@ def test_relative_runtime_root_is_refused_without_discovery(tmp_path, monkeypatc
 
 @pytest.mark.skipif(os.name != "nt", reason="Windows sharing behavior")
 def test_open_reader_handle_returns_typed_replace_refusal(tmp_path):
-    root, target = runtime_fixture(tmp_path)
-    target.write_bytes(b"old")
-    publisher = ClaudeProjectionPublisher(root)
-    selected = publisher.plan(projection(), target, sha256(b"old"))
+    publisher, selected, context, _, target = bound_publication(
+        tmp_path,
+        before=b"old",
+    )
     handles = [target.open("rb") for _ in range(4)]
     try:
         with pytest.raises(AtomicReplaceUnavailableError) as captured:
-            publisher.publish(selected, authorization())
+            publisher.publish(selected, context)
     finally:
         for handle in handles:
             handle.close()
@@ -439,10 +538,10 @@ def test_open_reader_handle_returns_typed_replace_refusal(tmp_path):
 
 
 def test_atomic_replace_failure_is_not_retried(tmp_path, monkeypatch):
-    root, target = runtime_fixture(tmp_path)
-    target.write_bytes(b"old")
-    publisher = ClaudeProjectionPublisher(root)
-    selected = publisher.plan(projection(), target, sha256(b"old"))
+    publisher, selected, context, _, target = bound_publication(
+        tmp_path,
+        before=b"old",
+    )
     calls = 0
 
     def refuse_replace(source, destination):
@@ -453,7 +552,7 @@ def test_atomic_replace_failure_is_not_retried(tmp_path, monkeypatch):
     monkeypatch.setattr(os, "replace", refuse_replace)
 
     with pytest.raises(AtomicReplaceUnavailableError) as captured:
-        publisher.publish(selected, authorization())
+        publisher.publish(selected, context)
 
     assert calls == 1
     assert isinstance(captured.value.__cause__, PermissionError)

@@ -13,6 +13,7 @@ from pathlib import Path
 from .adapters.claude import ClaudeGlobalMemoryAdapter
 from .canonical import canonical_json_bytes, sha256_domain
 from .claude_activation import _global_route
+from .claude_authority import VerifiedClaudeWriteContext
 from .claude_cli import _synthetic_operation
 from .claude_contracts import (
     CLAUDE_GLOBAL_NONCLAIMS,
@@ -254,10 +255,23 @@ def _execute_run(root: Path) -> _RunEvidence:
     activation, plan, authorization = _synthetic_operation(root / "activation")
     activation_receipt = activation.apply_synthetic(plan, authorization)
     store = MemoryStore(plan.config.store_root)
+    context = VerifiedClaudeWriteContext.bind(
+        store,
+        plan.transaction,
+        activation_receipt.commit_receipt,
+        authorization,
+    )
     materialized = ClaudeGlobalMemoryAdapter(store, _global_route()).materialize(
         plan.request
     )
     repeated = ClaudeGlobalMemoryAdapter(store, _global_route()).materialize(plan.request)
+    publisher = ClaudeProjectionPublisher(plan.config.runtime_root)
+    repeated_publication_plan = publisher.plan(
+        materialized,
+        plan.config.projection_target,
+        hashlib.sha256(materialized.content).hexdigest(),
+    )
+    publication = publisher.publish(repeated_publication_plan, context)
 
     evidence: dict[str, object] = {}
     evidence["CGM-001"] = materialized == repeated
@@ -275,18 +289,47 @@ def _execute_run(root: Path) -> _RunEvidence:
     evidence["CGM-011"] = _case_reused_id(root / "case-011")
     evidence["CGM-012"] = _case_authority_mismatch(root / "case-012")
     evidence["CGM-013"] = activation_receipt.import_receipt.outcome == "inserted"
-    evidence["CGM-014"] = _case_idempotent_import(plan, authorization, materialized)
+    evidence["CGM-014"] = _case_idempotent_import(
+        plan,
+        context,
+        publication,
+        materialized,
+    )
     evidence["CGM-015"] = _case_marker_conflict(root / "case-015", materialized)
-    outside_preserved = _case_outside_preservation(root / "case-016", materialized)
+    outside_preserved = _case_outside_preservation(
+        root / "case-016",
+        materialized,
+        context,
+    )
     evidence["CGM-016"] = outside_preserved
-    evidence["CGM-017"] = _case_stale_user(root / "case-017", materialized)
-    evidence["CGM-018"] = _case_stale_projection(root / "case-018", materialized, authorization)
-    evidence["CGM-019"] = _case_crash_before(root / "case-019", materialized, authorization)
-    evidence["CGM-020"] = _case_crash_after(root / "case-020", materialized, authorization)
+    evidence["CGM-017"] = _case_stale_user(
+        root / "case-017",
+        materialized,
+        context,
+    )
+    evidence["CGM-018"] = _case_stale_projection(
+        root / "case-018",
+        materialized,
+        context,
+    )
+    evidence["CGM-019"] = _case_crash_before(
+        root / "case-019",
+        materialized,
+        context,
+    )
+    evidence["CGM-020"] = _case_crash_after(
+        root / "case-020",
+        materialized,
+        context,
+    )
     evidence["CGM-021"] = _case_private_and_runtime_scan(root / "case-021", materialized)
     evidence["CGM-022"] = _case_model_authority(root / "case-022")
     evidence["CGM-025"] = outside_preserved
-    evidence["CGM-028"] = _case_concurrent_reader(root / "case-028", materialized, authorization)
+    evidence["CGM-028"] = _case_concurrent_reader(
+        root / "case-028",
+        materialized,
+        context,
+    )
     if not all(evidence.values()):
         failed = sorted(case_id for case_id, passed in evidence.items() if not passed)
         raise ClaudeContractError(f"synthetic CGM case failed: {failed}")
@@ -537,7 +580,7 @@ def _case_authority_mismatch(root: Path) -> bool:
     return False
 
 
-def _case_idempotent_import(plan, authorization, materialized) -> bool:
+def _case_idempotent_import(plan, context, publication, materialized) -> bool:
     importer = ClaudeManagedImport(
         plan.config.runtime_root,
         plan.config.user_memory_root,
@@ -549,26 +592,36 @@ def _case_idempotent_import(plan, authorization, materialized) -> bool:
         plan.config.projection_target,
         hashlib.sha256(before).hexdigest(),
     )
-    receipt = importer.apply(prepared, authorization)
+    receipt = importer.apply(prepared, context, publication)
     return receipt.outcome == "idempotent" and plan.config.user_memory_target.read_bytes() == before
 
 
-def _setup_import_case(root: Path, materialized, user_bytes: bytes):
+def _setup_import_case(root: Path, materialized, user_bytes: bytes, context):
     runtime = root / "runtime"
     projection = runtime / "claude" / "MNEME_GLOBAL.md"
     projection.parent.mkdir(parents=True)
-    projection.write_bytes(materialized.content)
+    publisher = ClaudeProjectionPublisher(runtime)
+    publication_plan = publisher.plan(materialized, projection, None)
+    publication = publisher.publish(publication_plan, context)
     user_root = root / "synthetic-user"
     user_memory = user_root / ".claude" / "CLAUDE.md"
     user_memory.parent.mkdir(parents=True)
     user_memory.write_bytes(user_bytes)
     importer = ClaudeManagedImport(runtime, user_root, materialized.manifest)
-    return importer, projection, user_memory
+    return importer, projection, user_memory, publication
 
 
 def _case_marker_conflict(root: Path, materialized) -> bool:
     block = BEGIN + b"\n@C:\\synthetic\\one.md\n" + END + b"\n"
-    importer, projection, user = _setup_import_case(root, materialized, block + block)
+    runtime = root / "runtime"
+    projection = runtime / "claude" / "MNEME_GLOBAL.md"
+    projection.parent.mkdir(parents=True)
+    projection.write_bytes(materialized.content)
+    user_root = root / "synthetic-user"
+    user = user_root / ".claude" / "CLAUDE.md"
+    user.parent.mkdir(parents=True)
+    user.write_bytes(block + block)
+    importer = ClaudeManagedImport(runtime, user_root, materialized.manifest)
     try:
         importer.plan(user, projection, hashlib.sha256(user.read_bytes()).hexdigest())
     except ClaudeContractError:
@@ -576,26 +629,34 @@ def _case_marker_conflict(root: Path, materialized) -> bool:
     return False
 
 
-def _case_outside_preservation(root: Path, materialized) -> bool:
+def _case_outside_preservation(root: Path, materialized, context) -> bool:
     before = (
         b"\xef\xbb\xbfHeader\r\n<!-- BEGIN EML TOOL -->\nbody\r\n"
         b"<!-- END EML TOOL -->\nTail\r\n"
     )
-    importer, projection, user = _setup_import_case(root, materialized, before)
-    _, _, authorization = _synthetic_operation(root / "unused-activation")
+    importer, projection, user, publication = _setup_import_case(
+        root,
+        materialized,
+        before,
+        context,
+    )
     prepared = importer.plan(user, projection, hashlib.sha256(before).hexdigest())
-    receipt = importer.apply(prepared, authorization)
+    receipt = importer.apply(prepared, context, publication)
     after = user.read_bytes()
     return receipt.outside_bytes_preserved and after.startswith(before)
 
 
-def _case_stale_user(root: Path, materialized) -> bool:
-    importer, projection, user = _setup_import_case(root, materialized, b"old")
-    _, _, authorization = _synthetic_operation(root / "unused-activation")
+def _case_stale_user(root: Path, materialized, context) -> bool:
+    importer, projection, user, publication = _setup_import_case(
+        root,
+        materialized,
+        b"old",
+        context,
+    )
     prepared = importer.plan(user, projection, hashlib.sha256(b"old").hexdigest())
     user.write_bytes(b"newer")
     try:
-        importer.apply(prepared, authorization)
+        importer.apply(prepared, context, publication)
     except StaleTargetError:
         return user.read_bytes() == b"newer"
     return False
@@ -606,39 +667,38 @@ def _publisher_case(root: Path, materialized, before: bytes):
     target = runtime / "claude" / "MNEME_GLOBAL.md"
     target.parent.mkdir(parents=True)
     target.write_bytes(before)
-    _, _, authorization = _synthetic_operation(root / "unused-activation")
-    return runtime, target, authorization
+    return runtime, target
 
 
-def _case_stale_projection(root: Path, materialized, authorization) -> bool:
-    runtime, target, _ = _publisher_case(root, materialized, b"old")
+def _case_stale_projection(root: Path, materialized, context) -> bool:
+    runtime, target = _publisher_case(root, materialized, b"old")
     publisher = ClaudeProjectionPublisher(runtime)
     prepared = publisher.plan(materialized, target, hashlib.sha256(b"old").hexdigest())
     target.write_bytes(b"changed")
     try:
-        publisher.publish(prepared, authorization)
+        publisher.publish(prepared, context)
     except StaleTargetError:
         return target.read_bytes() == b"changed"
     return False
 
 
-def _case_crash_before(root: Path, materialized, authorization) -> bool:
-    runtime, target, _ = _publisher_case(root, materialized, b"old")
+def _case_crash_before(root: Path, materialized, context) -> bool:
+    runtime, target = _publisher_case(root, materialized, b"old")
     publisher = ClaudeProjectionPublisher(runtime, crash_at="before_replace")
     prepared = publisher.plan(materialized, target, hashlib.sha256(b"old").hexdigest())
     try:
-        publisher.publish(prepared, authorization)
+        publisher.publish(prepared, context)
     except InjectedCrash:
         return target.read_bytes() == b"old"
     return False
 
 
-def _case_crash_after(root: Path, materialized, authorization) -> bool:
-    runtime, target, _ = _publisher_case(root, materialized, b"old")
+def _case_crash_after(root: Path, materialized, context) -> bool:
+    runtime, target = _publisher_case(root, materialized, b"old")
     publisher = ClaudeProjectionPublisher(runtime, crash_at="after_replace")
     prepared = publisher.plan(materialized, target, hashlib.sha256(b"old").hexdigest())
     try:
-        publisher.publish(prepared, authorization)
+        publisher.publish(prepared, context)
     except InjectedCrash:
         return target.read_bytes() == materialized.content
     return False
@@ -698,13 +758,18 @@ def _case_model_authority(root: Path) -> bool:
     return False
 
 
-def _case_concurrent_reader(root: Path, materialized, authorization) -> bool:
-    importer, projection, user = _setup_import_case(root, materialized, b"old")
+def _case_concurrent_reader(root: Path, materialized, context) -> bool:
+    importer, projection, user, publication = _setup_import_case(
+        root,
+        materialized,
+        b"old",
+        context,
+    )
     prepared = importer.plan(user, projection, hashlib.sha256(b"old").hexdigest())
     handles = [user.open("rb") for _ in range(4)] if os.name == "nt" else []
     try:
         try:
-            importer.apply(prepared, authorization)
+            importer.apply(prepared, context, publication)
         except AtomicReplaceUnavailableError:
             return os.name == "nt" and user.read_bytes() == b"old"
     finally:

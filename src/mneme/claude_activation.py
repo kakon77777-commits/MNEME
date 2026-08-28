@@ -5,6 +5,7 @@ from pathlib import Path
 
 from .adapters.claude import ClaudeGlobalMemoryAdapter
 from .canonical import canonical_json_bytes, sha256_domain
+from .claude_authority import VerifiedClaudeWriteContext, commit_receipt_digest
 from .claude_contracts import (
     CLAUDE_GLOBAL_SCOPE_PATHS,
     ClaudeGlobalProjectionRequest,
@@ -198,6 +199,34 @@ class ClaudeSyntheticActivationReceipt:
             self.import_receipt.projection_digest,
         ):
             raise ClaudeContractError("activation receipt projection binding mismatch")
+        if (
+            self.projection_receipt.transaction_ref,
+            self.projection_receipt.transaction_digest,
+            self.projection_receipt.committed_head,
+            self.projection_receipt.commit_receipt_digest,
+        ) != (
+            self.import_receipt.transaction_ref,
+            self.import_receipt.transaction_digest,
+            self.import_receipt.committed_head,
+            self.import_receipt.commit_receipt_digest,
+        ):
+            raise ClaudeContractError("activation receipt transaction binding mismatch")
+        if (
+            self.import_receipt.publication_receipt_ref,
+            self.import_receipt.publication_receipt_digest,
+        ) != (
+            self.projection_receipt.receipt_id,
+            self.projection_receipt.digest,
+        ):
+            raise ClaudeContractError("activation receipt publication binding mismatch")
+        if self.projection_receipt.transaction_digest != self.commit_receipt.transaction_digest:
+            raise ClaudeContractError("activation receipt commit transaction mismatch")
+        if self.projection_receipt.committed_head != self.commit_receipt.new_head:
+            raise ClaudeContractError("activation receipt commit head mismatch")
+        if self.projection_receipt.commit_receipt_digest != commit_receipt_digest(
+            self.commit_receipt
+        ):
+            raise ClaudeContractError("activation receipt commit evidence mismatch")
         if self.steps != (
             "canonical_commit",
             "projection_publish",
@@ -273,6 +302,12 @@ class ClaudeGlobalActivation:
         commit_receipt = store.commit(plan.transaction)
         if commit_receipt.new_head != plan.expected_final_head:
             raise ClaudeContractError("canonical commit head differs from activation plan")
+        context = VerifiedClaudeWriteContext.bind(
+            store,
+            plan.transaction,
+            commit_receipt,
+            authorization,
+        )
 
         route = _global_route()
         result = ClaudeGlobalMemoryAdapter(store, route).materialize(plan.request)
@@ -282,7 +317,8 @@ class ClaudeGlobalActivation:
             plan.config.projection_target,
             None,
         )
-        projection_receipt = publisher.publish(publication_plan, authorization)
+        publication = publisher.publish(publication_plan, context)
+        projection_receipt = publication.receipt
 
         managed_import = ClaudeManagedImport(
             plan.config.runtime_root,
@@ -294,7 +330,7 @@ class ClaudeGlobalActivation:
             plan.config.projection_target,
             _sha256_bytes(_SYNTHETIC_USER_MEMORY),
         )
-        import_receipt = managed_import.apply(import_plan, authorization)
+        import_receipt = managed_import.apply(import_plan, context, publication)
 
         receipt_material = {
             "activation_id": "activation:" + plan.plan_digest,
