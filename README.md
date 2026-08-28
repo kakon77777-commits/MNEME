@@ -74,9 +74,9 @@ Heading matching uses NFC normalization, whitespace collapse, and Unicode casefo
 
 Unknown sections and unsupported blocks remain explicit loss rather than being silently converted.
 
-### Built-in EveMiss Residence profile
+### Built-in EveMiss Residence profiles
 
-The initial built-in profile contains only section names already observed in prior memory-design evidence:
+`evemiss-residence/0.1` remains frozen as the original compatibility baseline. `evemiss-residence/0.2` is an additive real-dialect profile derived from a private read-only dry run; no private source text or digest is stored in this repository. The v0.1 baseline contains:
 
 | Section | Record | Scope |
 |---|---|---|
@@ -87,6 +87,8 @@ The initial built-in profile contains only section names already observed in pri
 | `This machine` | `fact` | `global/machine` |
 
 `Named Identities` intentionally remains a fact registry. A display label in Markdown never mints or resolves a resident identity.
+
+The v0.2 profile adds only observed dialect structure: `Memory Index` as a `global/core` paragraph instruction and the exact alias `Named Identities (Tier 1 Residences)`. The mixed introductory paragraph under the identity registry remains intentionally unmapped because it combines registry description with a hard rule; v0.2 does not guess a single record type for it.
 
 The profile format supports arbitrary Unicode aliases, including Traditional Chinese, but a particular real-world alias is built in only when there is evidence that it is actually used with that meaning.
 
@@ -188,8 +190,8 @@ Current work does not implement live LIMEN authorization, real Residence migrati
 
 - Repository: `kakon77777-commits/MNEME`
 - Package: `mneme-memory`
-- Candidate package version: `0.4.0a1`
+- Candidate package version: `0.4.0a2`
 - Canonical memory profile: `MLF-RM/0.1`
-- Markdown compatibility profile: `MNEME-MD/0.1`
+- Markdown compatibility profiles: `MNEME-MD/0.1` + EveMiss `evemiss-residence/0.2`
 - Cognitive persistence semantics: `MNEME-CPS/0.1`
 - Private Residence dry-run: `MNEME-PRIVATE-RESIDENCE-DRY-RUN/0.2`
