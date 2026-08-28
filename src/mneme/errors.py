@@ -50,5 +50,13 @@ class ManualAuthorityError(ClaudeContractError):
     """A local manual-write authorization is invalid or ineligible."""
 
 
+class ClaudeRouteError(ClaudeContractError):
+    """A Claude projection request or route is stale or outside the global profile."""
+
+
+class RequiredRecordOmittedError(ClaudeContractError):
+    """A required global record was omitted from a bounded Claude projection."""
+
+
 class CpsValidationError(MnemeError, ValueError):
     """A Cognitive Persistence Semantics object violates the CPS/0.1 contract."""
