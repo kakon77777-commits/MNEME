@@ -56,7 +56,10 @@ remain byte-identical.
 - stale store, projection or user-memory pre-images produce no success receipt;
 - real-target overrides are readable policy refusals with exit code `2`;
 - provider, network, MCP, Bridge and external-command effects are zero in the
-  positive acceptance population.
+  positive acceptance population as observed by
+  `cpython_audit_and_profile_v0.1`; file/socket/subprocess audit events and
+  provider/MCP/Bridge module entrypoints populate the counters rather than
+  dataclass defaults.
 
 ## Acceptance ownership
 
@@ -64,6 +67,12 @@ The synthetic runner executes CGM-001 through CGM-022, CGM-025 and CGM-028
 twice against one deterministic synthetic path. It compares the canonical store
 head, projection SHA-256, manifest digest and publication/import/activation
 receipt digests. Every forbidden injected effect turns the report red.
+
+The clean wheel step uses the declared developer prerequisites
+`setuptools>=68` and `wheel` before invoking `pip wheel --no-build-isolation`.
+Any recorded wheel SHA-256 is evidence for that named local build and is **not a
+cross-toolchain reproducibility claim**. Portable verification instead binds
+the source commit/tree, package name/version and byte-exact installed schemas.
 
 These cases remain intentionally unexecuted by the code candidate:
 

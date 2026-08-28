@@ -5,6 +5,7 @@ import os
 import shutil
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
 
 import pytest
@@ -12,6 +13,7 @@ import pytest
 ROOT = Path(__file__).parents[1]
 RUNBOOK = ROOT / "docs" / "runtime" / "CLAUDE_GLOBAL_MEMORY_TRANSITION_V0.1.md"
 WORKFLOW = ROOT / ".github" / "workflows" / "claude-global-memory.yml"
+PYPROJECT = ROOT / "pyproject.toml"
 
 
 def _run(*arguments: str, cwd: Path, pythonpath: Path | None = None):
@@ -151,6 +153,8 @@ def test_runbook_preserves_activation_nonclaims_and_later_gate():
     assert "CGM-026" in text
     assert "CGM-027" in text
     assert "separate local activation plan" in text
+    assert "cpython_audit_and_profile_v0.1" in text
+    assert "not a cross-toolchain reproducibility claim" in " ".join(text.split())
     for forbidden in ("AI_RESIDENCE", "USERPROFILE", "C:\\Users\\", "sk-"):
         assert forbidden not in text
 
@@ -164,3 +168,12 @@ def test_ci_has_windows_ubuntu_full_acceptance_and_clean_wheel_gates():
     assert "pip wheel" in text
     assert "--no-build-isolation" in text
     assert "--no-deps" in text
+
+
+def test_dev_extra_declares_no_build_isolation_prerequisites():
+    project = tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))
+    dev = set(project["project"]["optional-dependencies"]["dev"])
+
+    assert "pytest>=8.0" in dev
+    assert "setuptools>=68" in dev
+    assert "wheel" in dev
