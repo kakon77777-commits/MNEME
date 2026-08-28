@@ -326,7 +326,7 @@ block_kind
 
 All declared selector fields must match exactly.
 
-A policy rule outputs a complete serialized `AssessmentContext`.
+A policy rule outputs a normalized complete `AssessmentContext` representation, including explicit false/null values for fields not asserted by the rule, so policy equality is byte-comparable.
 
 ### 9.3 Forbidden selectors
 
@@ -349,7 +349,7 @@ This prevents the Dry-Run layer from becoming an implicit semantic migration mod
 
 ### 9.4 Policy conflicts
 
-If multiple matching rules produce byte-identical contexts, the result is accepted once and all matching rule IDs are recorded.
+If multiple matching rules produce byte-identical normalized contexts, the result is accepted once and all matching rule IDs are recorded.
 
 If multiple matching rules produce different contexts, the analyzer must not choose one by order. It produces a conflict context equivalent to:
 
@@ -805,7 +805,7 @@ LOW < MEDIUM < HIGH < BLOCKED
 
 `MEDIUM` when unresolved compatibility findings exist but mapped content remains dominant.
 
-`HIGH` when at least 25% of non-heading structural blocks are unresolved, repeated unknown headings dominate unresolved material, or no requested projection can represent expected core sections.
+`HIGH` when at least 25% of non-heading structural blocks are unresolved, repeated unknown headings dominate unresolved material, or mapped records exist but every requested preview fails to materialize successfully under its declared budget.
 
 `BLOCKED` on source digest mismatch, source mutation, profile validation failure, UTF-8 decode failure, or deterministic rerun mismatch.
 
