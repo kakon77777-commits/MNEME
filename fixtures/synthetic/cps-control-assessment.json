@@ -1,0 +1,16 @@
+{
+  "assessment_version": "mneme.persistence-assessment/0.1",
+  "assessment_id": "pa-synthetic-control",
+  "subject_refs": ["cps-decision"],
+  "candidate": "PRESERVE",
+  "basis": {
+    "method": "EXPLICIT_RULE",
+    "deterministic": true,
+    "reason_codes": ["EXPLICIT_DECISION"],
+    "evidence_refs": ["cps-decision"]
+  },
+  "required_preservations": ["cps-decision"],
+  "risk": "LOW",
+  "review_state": "UNREVIEWED",
+  "authority": false
+}

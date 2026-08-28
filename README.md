@@ -100,6 +100,41 @@ Profile-aware projection renders a standardized bounded `MEMORY.md` view. Re-imp
 
 This proves compatibility semantics without pretending source-dependent canonical record IDs must be byte-identical after projection/re-import.
 
+
+## Cognitive Persistence Semantics — MNEME-CPS/0.1
+
+MNEME-CPS is an additive, observation-only semantic layer above canonical memory and Markdown compatibility. It asks how a cognition-related memory candidate might need to persist without rewriting `MemoryRecord`, mutating `MemoryStore`, or claiming that reconstructibility has already been proven.
+
+```text
+MLF-RM/0.1   -> canonical memory
+MNEME-MD/0.1 -> Markdown compatibility
+MNEME-CPS/0.1 -> persistence assessment / factorization / cognitive-seed proposals
+```
+
+CPS/0.1 defines six non-authoritative candidate dispositions:
+
+```text
+PRESERVE
+STRUCTURALIZE
+GENERATIZE
+RECOMPUTE
+DISCARD
+UNKNOWN
+```
+
+The destructive boundary is explicit:
+
+```text
+ASSESSMENT != AUTHORITY
+RECONSTRUCTIBLE != DISPENSABLE
+FACTORIZE != DELETE
+SEED != AUTHORITY
+UNKNOWN -> PRESERVE / REVIEW BY DEFAULT
+NO CPS/0.1 DELETION OR CANONICAL FACTORIZATION COMMIT
+```
+
+`PersistenceAssessment`, `FactorizationProposal`, and `CognitiveSeedProposal` are sidecar experiment artifacts. CPS/0.1 performs no reconstruction, no regenerative forgetting, no archive retirement, and no MLF-RM schema evolution.
+
 ## Verification
 
 Python 3.11+:
@@ -109,6 +144,7 @@ python -m pip install -e ".[dev]"
 python -m pytest -q
 python scripts/validate_fresh_memory_core.py --output fresh-memory-core.json
 python scripts/validate_memory_markdown_profile.py --output memory-markdown-profile.json
+python scripts/validate_cognitive_persistence_semantics.py --output cps.json
 python -m compileall -q src
 ```
 
@@ -126,11 +162,15 @@ Current work does not implement live LIMEN authorization, real Residence migrati
 - `docs/superpowers/plans/2026-08-27-fresh-memory-core.md`
 - `docs/superpowers/specs/2026-08-27-memory-markdown-compatibility-profile-design.md`
 - `docs/superpowers/plans/2026-08-27-memory-markdown-compatibility-profile.md`
+- `docs/papers/2026-08-27-cognitive-reconstruction-theory-v0.1.md`
+- `docs/superpowers/specs/2026-08-28-cognitive-persistence-semantics-design.md`
+- `docs/superpowers/plans/2026-08-28-cognitive-persistence-semantics.md`
 
 ## Repository identity
 
 - Repository: `kakon77777-commits/MNEME`
 - Package: `mneme-memory`
-- Candidate package version: `0.2.0a1`
+- Candidate package version: `0.3.0a1`
 - Canonical memory profile: `MLF-RM/0.1`
 - Markdown compatibility profile: `MNEME-MD/0.1`
+- Cognitive persistence semantics: `MNEME-CPS/0.1`

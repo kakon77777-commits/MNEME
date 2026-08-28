@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://evemisslab.com/mneme/schemas/recomputation-reference-0.1.schema.json",
+  "title": "MNEME CPS RecomputationReference 0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "reference_version", "reference_id", "source_kind", "source_ref",
+    "query_or_operation", "freshness_requirement", "previous_observation_ref",
+    "failure_policy", "authority"
+  ],
+  "properties": {
+    "reference_version": {"const": "mneme.recomputation-reference/0.1"},
+    "reference_id": {"type": "string", "minLength": 1},
+    "source_kind": {"type": "string", "minLength": 1},
+    "source_ref": {"type": "string", "minLength": 1},
+    "query_or_operation": {"type": "string", "minLength": 1},
+    "freshness_requirement": {"type": "string", "minLength": 1},
+    "previous_observation_ref": {"type": ["string", "null"], "minLength": 1},
+    "failure_policy": {"type": "string", "minLength": 1},
+    "authority": {"const": false}
+  }
+}
