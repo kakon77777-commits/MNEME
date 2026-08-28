@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://evemisslab.com/mneme/schemas/private-residence-dry-run-report-0.2.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["report_version", "status", "source", "markdown_profile", "persistence_policy", "pass1", "pass2", "risk", "blocking_reasons", "canonical_mutation", "destructive_actions"],
+  "properties": {
+    "report_version": {"const": "mneme.private-residence-dry-run/0.2"},
+    "status": {"enum": ["PASS", "PASS_WITH_FINDINGS", "BLOCKED"]},
+    "source": {
+      "type": "object", "additionalProperties": false,
+      "required": ["sha256", "byte_count", "line_count", "mutated"],
+      "properties": {
+        "sha256": {"type": "string"},
+        "byte_count": {"type": "integer", "minimum": 0},
+        "line_count": {"type": "integer", "minimum": 0},
+        "mutated": {"type": "boolean"}
+      }
+    },
+    "markdown_profile": {
+      "type": "object", "additionalProperties": false,
+      "required": ["profile_id", "profile_digest"],
+      "properties": {
+        "profile_id": {"type": "string", "minLength": 1},
+        "profile_digest": {"type": "string", "minLength": 1}
+      }
+    },
+    "persistence_policy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["policy_id", "policy_digest", "rule_count"],
+      "properties": {
+        "policy_id": {"type": "string", "minLength": 1},
+        "policy_digest": {"type": ["string", "null"]},
+        "rule_count": {"type": "integer", "minimum": 0}
+      }
+    },
+    "pass1": {
+      "type": "object", "additionalProperties": false,
+      "required": ["mapped_record_count", "loss_count", "unknown_heading_count", "route_hint_counts"],
+      "properties": {
+        "mapped_record_count": {"type": "integer", "minimum": 0},
+        "loss_count": {"type": "integer", "minimum": 0},
+        "unknown_heading_count": {"type": "integer", "minimum": 0},
+        "route_hint_counts": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}}
+      }
+    },
+    "pass2": {
+      "type": "object", "additionalProperties": false,
+      "required": ["assessment_count", "candidate_counts", "context_provenance_counts", "required_preservation_count", "factorization_readiness_counts", "factorization_intent_count", "factorization_proposal_count", "seed_intent_count", "seed_proposal_count", "unknown_count"],
+      "properties": {
+        "assessment_count": {"type": "integer", "minimum": 0},
+        "candidate_counts": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}},
+        "context_provenance_counts": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}},
+        "required_preservation_count": {"type": "integer", "minimum": 0},
+        "factorization_readiness_counts": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}},
+        "factorization_intent_count": {"type": "integer", "minimum": 0},
+        "factorization_proposal_count": {"type": "integer", "minimum": 0},
+        "seed_intent_count": {"type": "integer", "minimum": 0},
+        "seed_proposal_count": {"type": "integer", "minimum": 0},
+        "unknown_count": {"type": "integer", "minimum": 0}
+      }
+    },
+    "risk": {
+      "type": "object", "additionalProperties": false,
+      "required": ["compatibility", "persistence", "overall", "reasons"],
+      "properties": {
+        "compatibility": {"enum": ["LOW", "MEDIUM", "HIGH", "BLOCKED"]},
+        "persistence": {"enum": ["LOW", "MEDIUM", "HIGH", "BLOCKED"]},
+        "overall": {"enum": ["LOW", "MEDIUM", "HIGH", "BLOCKED"]},
+        "reasons": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "blocking_reasons": {"type": "array", "items": {"type": "string"}},
+    "canonical_mutation": {"const": false},
+    "destructive_actions": {"const": false}
+  }
+}

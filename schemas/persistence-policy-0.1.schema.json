@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://evemisslab.com/mneme/schemas/persistence-policy-0.1.schema.json",
+  "title": "MNEME Private Residence Persistence Policy 0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["policy_version", "policy_id", "rules"],
+  "properties": {
+    "policy_version": {"const": "mneme.persistence-policy/0.1"},
+    "policy_id": {"type": "string", "minLength": 1},
+    "rules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["rule_id", "selector", "context"],
+        "properties": {
+          "rule_id": {"type": "string", "minLength": 1},
+          "selector": {
+            "type": "object",
+            "minProperties": 1,
+            "additionalProperties": false,
+            "properties": {
+              "section_id": {"type": "string", "minLength": 1},
+              "record_type": {"type": "string", "minLength": 1},
+              "route_hint": {"type": "string", "minLength": 1},
+              "scope_kind": {"type": "string", "minLength": 1},
+              "scope_subject": {"type": "string", "minLength": 1},
+              "block_kind": {"type": "string", "minLength": 1}
+            }
+          },
+          "context": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "explicit_decision", "identity_or_authority_evidence", "historical_observation",
+              "structural_dependency", "structural_state", "derivable_explanation",
+              "reconstruction_recipe_ref", "obligation_set_ref", "freshness_required",
+              "external_source_ref", "previous_observation_ref", "ephemeral_working_state",
+              "superseded_materialization", "conflicting_evidence"
+            ],
+            "properties": {
+              "explicit_decision": {"type": "boolean"},
+              "identity_or_authority_evidence": {"type": "boolean"},
+              "historical_observation": {"type": "boolean"},
+              "structural_dependency": {"type": "boolean"},
+              "structural_state": {"type": "boolean"},
+              "derivable_explanation": {"type": "boolean"},
+              "reconstruction_recipe_ref": {"type": ["string", "null"]},
+              "obligation_set_ref": {"type": ["string", "null"]},
+              "freshness_required": {"type": "boolean"},
+              "external_source_ref": {"type": ["string", "null"]},
+              "previous_observation_ref": {"type": ["string", "null"]},
+              "ephemeral_working_state": {"type": "boolean"},
+              "superseded_materialization": {"type": "boolean"},
+              "conflicting_evidence": {"type": "boolean"}
+            }
+          }
+        }
+      }
+    }
+  }
+}

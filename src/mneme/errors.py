@@ -36,3 +36,7 @@ class ProfileValidationError(MnemeError, ValueError):
 
 class CpsValidationError(MnemeError, ValueError):
     """A Cognitive Persistence Semantics object violates the CPS/0.1 contract."""
+
+
+class DryRunValidationError(MnemeError, ValueError):
+    """A Private Residence dry-run object violates the read-only analysis contract."""

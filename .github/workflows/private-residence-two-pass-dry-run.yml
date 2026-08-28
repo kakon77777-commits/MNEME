@@ -1,0 +1,48 @@
+name: Private Residence Two-Pass Dry Run
+
+on:
+  push:
+    paths:
+      - "src/**"
+      - "schemas/**"
+      - "fixtures/**"
+      - "tests/**"
+      - "scripts/**"
+      - "pyproject.toml"
+      - "README.md"
+      - ".github/workflows/private-residence-two-pass-dry-run.yml"
+  pull_request:
+    paths:
+      - "src/**"
+      - "schemas/**"
+      - "fixtures/**"
+      - "tests/**"
+      - "scripts/**"
+      - "pyproject.toml"
+      - "README.md"
+      - ".github/workflows/private-residence-two-pass-dry-run.yml"
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install
+        run: python -m pip install -e '.[dev]'
+      - name: Test
+        run: python -m pytest -q
+      - name: Fresh Memory Core acceptance
+        run: python scripts/validate_fresh_memory_core.py --output fresh-memory-core.json
+      - name: Memory Markdown Profile acceptance
+        run: python scripts/validate_memory_markdown_profile.py --output memory-markdown-profile.json
+      - name: Cognitive Persistence Semantics acceptance
+        run: python scripts/validate_cognitive_persistence_semantics.py --output cps.json
+      - name: Private Residence Dry-Run acceptance
+        run: python scripts/validate_private_residence_two_pass_dry_run.py --output private-residence-dry-run.json
+      - name: Compile
+        run: python -m compileall -q src

@@ -1,0 +1,5 @@
+{"$schema":"https://json-schema.org/draft/2020-12/schema","type":"object","additionalProperties":false,
+ "required":["intent_version","seed_intent_id","factorization_intent_id","anchors","structure","generators","obligations","provenance_refs","recomputation_references","unresolved_components","equivalence_contract","authority"],
+ "properties":{"intent_version":{"const":"mneme.seed-intent/0.1"},"seed_intent_id":{"type":"string","minLength":1},"factorization_intent_id":{"type":"string","minLength":1},
+ "anchors":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},"structure":{"type":"array","items":{"type":"object","minProperties":1}},"generators":{"type":"array","items":{"type":"object","minProperties":1}},"obligations":{"type":"array","items":{"type":"object","minProperties":1}},
+ "provenance_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},"recomputation_references":{"type":"array","items":{"type":"object"}},"unresolved_components":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},"equivalence_contract":{"type":["object","null"]},"authority":{"const":false}}}

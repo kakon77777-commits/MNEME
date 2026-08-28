@@ -1,0 +1,29 @@
+{
+  "factorization": {
+    "intent_version": "mneme.factorization-intent/0.1",
+    "intent_id": "synthetic-fi-generative",
+    "subject_record_ids": ["$GENERATIVE_RECORD"],
+    "anchors": ["$GENERATIVE_RECORD"],
+    "structure": [],
+    "generators": [{"kind": "RECONSTRUCTION_RECIPE", "generator_ref": "recipe://synthetic-verification", "source_ref": "$GENERATIVE_RECORD"}],
+    "obligations": [{"kind": "ANCHOR_MUST_MATCH", "subject_ref": "$GENERATIVE_RECORD", "source_ref": "$GENERATIVE_RECORD"}],
+    "provenance_refs": ["$GENERATIVE_RECORD"],
+    "recompute_refs": [],
+    "unresolved_refs": [],
+    "authority": false
+  },
+  "seed": {
+    "intent_version": "mneme.seed-intent/0.1",
+    "seed_intent_id": "synthetic-si-generative",
+    "factorization_intent_id": "synthetic-fi-generative",
+    "anchors": ["$GENERATIVE_RECORD"],
+    "structure": [],
+    "generators": [{"kind": "RECONSTRUCTION_RECIPE", "generator_ref": "recipe://synthetic-verification", "source_ref": "$GENERATIVE_RECORD"}],
+    "obligations": [{"kind": "ANCHOR_MUST_MATCH", "subject_ref": "$GENERATIVE_RECORD", "source_ref": "$GENERATIVE_RECORD"}],
+    "provenance_refs": ["$GENERATIVE_RECORD"],
+    "recomputation_references": [],
+    "unresolved_components": [],
+    "equivalence_contract": {"contract_version": "mneme.equivalence-contract/0.1", "contract_id": "synthetic-eq-generative", "observation_surfaces": [{"kind": "ANCHOR_MUST_MATCH", "subject_ref": "$GENERATIVE_RECORD"}, {"kind": "AUTHORITY_MUST_NOT_ESCALATE", "subject_ref": "$GENERATIVE_RECORD"}], "forbidden_equalities": ["TOKEN_EQUALITY", "TRACE_EQUALITY"], "authority": false},
+    "authority": false
+  }
+}
