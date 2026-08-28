@@ -100,6 +100,15 @@ def _source_schema_hashes() -> dict[str, str]:
     }
 
 
+def test_all_source_schema_resources_use_canonical_lf_bytes():
+    schema_root = ROOT / "src" / "mneme" / "schemas"
+    for name in SCHEMA_NAMES:
+        raw = (schema_root / name).read_bytes()
+        assert b"\r" not in raw, f"{name} contains noncanonical CR bytes"
+        assert raw.endswith(b"\n"), f"{name} lacks one terminal LF"
+        assert not raw.endswith(b"\n\n"), f"{name} has duplicate terminal LF"
+
+
 def test_clean_wheel_contains_one_canonical_schema_set(tmp_path: Path):
     wheel = _build_wheel(tmp_path)
     with zipfile.ZipFile(wheel) as package:
