@@ -1,0 +1,36 @@
+{
+  "policy_version": "mneme.persistence-policy/0.1",
+  "policy_id": "synthetic-residence/0.1",
+  "rules": [
+    {
+      "rule_id": "preserve-standing",
+      "selector": {"section_id": "standing_instructions", "block_kind": "unordered_list_item"},
+      "context": {"explicit_decision": true, "identity_or_authority_evidence": false, "historical_observation": false, "structural_dependency": false, "structural_state": false, "derivable_explanation": false, "reconstruction_recipe_ref": null, "obligation_set_ref": null, "freshness_required": false, "external_source_ref": null, "previous_observation_ref": null, "ephemeral_working_state": false, "superseded_materialization": false, "conflicting_evidence": false}
+    },
+    {
+      "rule_id": "generative-verification",
+      "selector": {"section_id": "verification_lessons"},
+      "context": {"explicit_decision": false, "identity_or_authority_evidence": false, "historical_observation": false, "structural_dependency": false, "structural_state": false, "derivable_explanation": true, "reconstruction_recipe_ref": "recipe://synthetic-verification", "obligation_set_ref": "obligation://synthetic-verification", "freshness_required": false, "external_source_ref": null, "previous_observation_ref": null, "ephemeral_working_state": false, "superseded_materialization": false, "conflicting_evidence": false}
+    },
+    {
+      "rule_id": "structural-collaboration",
+      "selector": {"section_id": "who_how_we_work"},
+      "context": {"explicit_decision": false, "identity_or_authority_evidence": false, "historical_observation": false, "structural_dependency": false, "structural_state": true, "derivable_explanation": false, "reconstruction_recipe_ref": null, "obligation_set_ref": null, "freshness_required": false, "external_source_ref": null, "previous_observation_ref": null, "ephemeral_working_state": false, "superseded_materialization": false, "conflicting_evidence": false}
+    },
+    {
+      "rule_id": "unknown-identities",
+      "selector": {"section_id": "named_identities"},
+      "context": {"explicit_decision": false, "identity_or_authority_evidence": false, "historical_observation": false, "structural_dependency": false, "structural_state": false, "derivable_explanation": false, "reconstruction_recipe_ref": null, "obligation_set_ref": null, "freshness_required": false, "external_source_ref": null, "previous_observation_ref": null, "ephemeral_working_state": false, "superseded_materialization": false, "conflicting_evidence": false}
+    },
+    {
+      "rule_id": "recompute-machine-paragraph",
+      "selector": {"section_id": "this_machine", "block_kind": "paragraph"},
+      "context": {"explicit_decision": false, "identity_or_authority_evidence": false, "historical_observation": true, "structural_dependency": false, "structural_state": false, "derivable_explanation": false, "reconstruction_recipe_ref": null, "obligation_set_ref": null, "freshness_required": true, "external_source_ref": "synthetic://machine/current", "previous_observation_ref": "synthetic://machine/previous", "ephemeral_working_state": false, "superseded_materialization": false, "conflicting_evidence": false}
+    },
+    {
+      "rule_id": "discard-machine-list",
+      "selector": {"section_id": "this_machine", "block_kind": "unordered_list_item"},
+      "context": {"explicit_decision": false, "identity_or_authority_evidence": false, "historical_observation": false, "structural_dependency": false, "structural_state": false, "derivable_explanation": false, "reconstruction_recipe_ref": null, "obligation_set_ref": null, "freshness_required": false, "external_source_ref": null, "previous_observation_ref": null, "ephemeral_working_state": true, "superseded_materialization": false, "conflicting_evidence": false}
+    }
+  ]
+}

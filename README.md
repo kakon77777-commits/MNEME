@@ -135,6 +135,21 @@ NO CPS/0.1 DELETION OR CANONICAL FACTORIZATION COMMIT
 
 `PersistenceAssessment`, `FactorizationProposal`, and `CognitiveSeedProposal` are sidecar experiment artifacts. CPS/0.1 performs no reconstruction, no regenerative forgetting, no archive retirement, and no MLF-RM schema evolution.
 
+## Private Residence Two-Pass Dry Run — 0.2
+
+The Dry-Run/0.2 analyzer composes the existing compatibility and persistence layers without merging their semantics:
+
+```text
+MLF-RM/0.1      -> canonical memory
+MNEME-MD/0.1    -> Markdown compatibility
+MNEME-CPS/0.1   -> cognitive persistence semantics
+Dry-Run/0.2     -> private two-pass migration/factorization evidence
+```
+
+PASS 1 maps only through MNEME-MD. PASS 2 receives only PASS 1 mapped records and exact structured metadata; persistence-policy selectors cannot inspect source prose, `content.text`, regexes, embeddings, similarity, or LLM output. Readiness is evidence only and never synthesizes factorization components. Actual factorization/seed proposals require explicit caller intents and existing CPS validation.
+
+Dry-Run/0.2 accepts no writable `MemoryStore` and exposes no deletion, migration, reconstruction, tombstoning, archive movement, seed promotion, profile promotion, or regenerative-forgetting path. Public fixtures remain synthetic; sanitized evidence removes private path/text/source-digest/projection-body material.
+
 ## Verification
 
 Python 3.11+:
@@ -145,6 +160,7 @@ python -m pytest -q
 python scripts/validate_fresh_memory_core.py --output fresh-memory-core.json
 python scripts/validate_memory_markdown_profile.py --output memory-markdown-profile.json
 python scripts/validate_cognitive_persistence_semantics.py --output cps.json
+python scripts/validate_private_residence_two_pass_dry_run.py --output private-residence-dry-run.json
 python -m compileall -q src
 ```
 
@@ -165,12 +181,15 @@ Current work does not implement live LIMEN authorization, real Residence migrati
 - `docs/papers/2026-08-27-cognitive-reconstruction-theory-v0.1.md`
 - `docs/superpowers/specs/2026-08-28-cognitive-persistence-semantics-design.md`
 - `docs/superpowers/plans/2026-08-28-cognitive-persistence-semantics.md`
+- `docs/superpowers/specs/2026-08-28-private-residence-two-pass-dry-run-design.md`
+- `docs/superpowers/plans/2026-08-28-private-residence-two-pass-dry-run.md`
 
 ## Repository identity
 
 - Repository: `kakon77777-commits/MNEME`
 - Package: `mneme-memory`
-- Candidate package version: `0.3.0a1`
+- Candidate package version: `0.4.0a1`
 - Canonical memory profile: `MLF-RM/0.1`
 - Markdown compatibility profile: `MNEME-MD/0.1`
 - Cognitive persistence semantics: `MNEME-CPS/0.1`
+- Private Residence dry-run: `MNEME-PRIVATE-RESIDENCE-DRY-RUN/0.2`

@@ -41,7 +41,7 @@ def propose_profiled_markdown_import(path: Path, profile: MemoryMarkdownProfile)
     blocks = tuple(_scan_markdown(text))
 
     active_rule: SectionRule | None = None
-    active_heading_state = "none"
+    active_heading_state = "none"  # none | known | unknown
     records: list[dict[str, object]] = []
     loss: list[dict[str, object]] = []
     mappings: list[dict[str, object]] = []
@@ -152,6 +152,11 @@ def propose_profiled_markdown_import(path: Path, profile: MemoryMarkdownProfile)
         mapping_receipt=mapping_receipt,
         committed=False,
     )
+
+
+def scan_markdown_blocks(text: str) -> tuple[MarkdownBlock, ...]:
+    """Public structural scanner wrapper; preserves existing importer scan semantics."""
+    return tuple(_scan_markdown(text))
 
 
 def _record_id(
@@ -295,6 +300,7 @@ def project_profiled_markdown(
     if len(_PROFILE_HEADER) > byte_budget:
         raise ProjectionBudgetError("fixed MEMORY header exceeds byte_budget")
 
+    prepared: list[tuple[MemoryRecord, SectionRule, str]] = []
     omitted: list[dict[str, str]] = []
     section_order: list[str] = []
     groups: dict[str, list[tuple[MemoryRecord, SectionRule, str]]] = {}
@@ -319,6 +325,7 @@ def project_profiled_markdown(
             omitted.append({"record_id": record_id, "reason": "record_type_not_renderable"})
             continue
         item = (record, rule, render_kind)
+        prepared.append(item)
         if section_id not in groups:
             groups[section_id] = []
             section_order.append(section_id)
@@ -336,6 +343,7 @@ def project_profiled_markdown(
             raw = record.to_dict()
             record_id = str(raw["record_id"])
             block = _render_profile_record(raw, render_kind)
+            # Reserve one terminal LF to separate sections.
             if len(content) + len(section_bytes) + len(block) + 1 > byte_budget:
                 omitted.append({"record_id": record_id, "reason": "budget_exceeded"})
                 continue

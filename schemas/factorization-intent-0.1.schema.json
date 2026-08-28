@@ -1,0 +1,7 @@
+{"$schema":"https://json-schema.org/draft/2020-12/schema","type":"object","additionalProperties":false,
+ "required":["intent_version","intent_id","subject_record_ids","anchors","structure","generators","obligations","provenance_refs","recompute_refs","unresolved_refs","authority"],
+ "properties":{"intent_version":{"const":"mneme.factorization-intent/0.1"},"intent_id":{"type":"string","minLength":1},
+ "subject_record_ids":{"type":"array","minItems":1,"uniqueItems":true,"items":{"type":"string","minLength":1}},
+ "anchors":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},
+ "structure":{"type":"array","items":{"type":"object","minProperties":1}},"generators":{"type":"array","items":{"type":"object","minProperties":1}},"obligations":{"type":"array","items":{"type":"object","minProperties":1}},
+ "provenance_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},"recompute_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},"unresolved_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}},"authority":{"const":false}}}

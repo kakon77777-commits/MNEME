@@ -1,0 +1,13 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "type":"object","additionalProperties":false,
+  "required":["report_version","status","source","markdown_profile","persistence_policy","pass1","pass2","risk","blocking_reasons","canonical_mutation","destructive_actions"],
+  "properties":{
+    "report_version":{"const":"mneme.private-residence-dry-run/0.2"},
+    "status":{"enum":["PASS","PASS_WITH_FINDINGS","BLOCKED"]},
+    "source":{"type":"object"},"markdown_profile":{"type":"object"},"persistence_policy":{"type":"object"},
+    "pass1":{"type":"object"},"pass2":{"type":"object"},"risk":{"type":"object"},
+    "blocking_reasons":{"type":"array","items":{"type":"string"}},
+    "canonical_mutation":{"const":false},"destructive_actions":{"const":false}
+  }
+}
