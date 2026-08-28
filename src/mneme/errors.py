@@ -58,5 +58,17 @@ class RequiredRecordOmittedError(ClaudeContractError):
     """A required global record was omitted from a bounded Claude projection."""
 
 
+class StaleTargetError(ClaudeContractError):
+    """A local publication target no longer matches its planned pre-image."""
+
+
+class ClaudePathBoundaryError(ClaudeContractError):
+    """A Claude transition path is outside its explicit local runtime boundary."""
+
+
+class InjectedCrash(MnemeError, RuntimeError):
+    """A synthetic fault-injection point interrupted an atomic operation."""
+
+
 class CpsValidationError(MnemeError, ValueError):
     """A Cognitive Persistence Semantics object violates the CPS/0.1 contract."""
