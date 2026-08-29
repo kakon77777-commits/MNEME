@@ -1,9 +1,9 @@
 # MNEME 0.5.0a1 Unified Profile Integration — Design Specification
 
-**Date:** 2026-08-29  
-**Status:** design candidate for Neo.K and Lares review  
-**Canonical integration base:** GitHub `main@c21546a263920e0f80701696e1857c203917d701`  
-**Accepted Claude input:** `feat/claude-global-memory-transition-v0.1@89bb1509f2bb96c4067d12c15094adacc2512b67`  
+**Date:** 2026-08-29
+**Status:** design candidate for Neo.K and Lares review
+**Canonical integration base:** GitHub `main@c21546a263920e0f80701696e1857c203917d701`
+**Accepted Claude input:** `feat/claude-global-memory-transition-v0.1@89bb1509f2bb96c4067d12c15094adacc2512b67`
 **Target package candidate:** `mneme-memory==0.5.0a1`
 
 ## 1. Decision
