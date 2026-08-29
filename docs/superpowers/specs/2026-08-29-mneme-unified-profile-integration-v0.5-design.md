@@ -331,12 +331,18 @@ Conflict adjudication order:
 The design branch/worktree is:
 
 ```text
-branch    feat/mneme-unified-profile-integration-v0.5
-worktree  D:\Ai\work together\MNEME\.worktrees\unified-profile-integration-v0.5
-base      c21546a263920e0f80701696e1857c203917d701
-tree      5ad5725ca685df334110b257e4004d9274e35674
-baseline  191 passed / 0 failed
+branch       feat/mneme-unified-profile-integration-v0.5
+worktree     D:\Ai\work together\MNEME\.worktrees\unified-profile-integration-v0.5
+base_head    c21546a263920e0f80701696e1857c203917d701
+base_tree    5ad5725ca685df334110b257e4004d9274e35674
+baseline     191 passed / 0 failed
 ```
+
+`base_tree` names the immutable remote-main source tree before this design file
+was added. It is not the design commit tree. Every design, plan and
+implementation review handoff SHALL separately record its own exact HEAD/tree
+and document SHA; a base-tree pin never substitutes for the reviewed artifact
+tree.
 
 No push, PR or merge is authorized by this design.
 
@@ -416,6 +422,12 @@ separate migration design and versioned schema family.
 - runtime observer catches real UDP, subprocess and outside-root writes;
 - same-root acceptance reports are byte/digest deterministic;
 - actual user-memory and local activation cases remain NOT_RUN.
+- Lares (or a separately bound Claude-client Twin approved by Neo.K) performs a
+  fresh independent adversarial review against the exact integrated tree,
+  including capability-forgery, effect-observer, path, junction and
+  reader-lock populations;
+- no cherry-pick, merge-base relationship or prior branch ACCEPT is treated as
+  acceptance of the integrated tree.
 
 ### 14.6 Combined package gates
 
