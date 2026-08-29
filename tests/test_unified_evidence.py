@@ -135,6 +135,8 @@ def test_combined_ci_fetches_history_required_by_git_object_pins():
     text = WORKFLOW.read_text(encoding="utf-8")
 
     assert "fetch-depth: 0" in text
+    assert "name: Fetch pinned Claude candidate" in text
+    assert "feat/claude-global-memory-transition-v0.1" in text
 
 
 def test_final_acceptance_is_digest_bound_and_preserves_nonclaims():

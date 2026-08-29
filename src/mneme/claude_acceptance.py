@@ -4,7 +4,6 @@ import ast
 import hashlib
 import json
 import os
-import shutil
 import socket
 import subprocess
 import sys
@@ -962,4 +961,18 @@ def _remove_exact_synthetic_run(run_root: Path, owner_root: Path) -> None:
     resolved_owner = owner_root.resolve(strict=True)
     if resolved_run.parent != resolved_owner or resolved_run.name != "mneme-cgm-repeat":
         raise ClaudeContractError("refusing to remove unexpected acceptance run root")
-    shutil.rmtree(resolved_run)
+    for directory, child_directories, filenames in os.walk(
+        resolved_run,
+        topdown=False,
+        followlinks=False,
+    ):
+        selected_directory = Path(directory)
+        for filename in filenames:
+            (selected_directory / filename).unlink()
+        for child_name in child_directories:
+            child = selected_directory / child_name
+            if child.is_symlink():
+                child.unlink()
+            else:
+                child.rmdir()
+    resolved_run.rmdir()

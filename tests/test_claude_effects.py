@@ -8,6 +8,7 @@ from types import FunctionType
 
 import pytest
 
+from mneme.claude_acceptance import _remove_exact_synthetic_run
 from mneme.claude_effects import ClaudeRuntimeEffectObserver
 
 
@@ -92,6 +93,27 @@ def test_synthetic_root_and_closed_resource_reads_are_allowed(tmp_path):
     evidence = observer.evidence()
     assert evidence.fixture_reads == 1
     assert evidence.forbidden_total() == 0
+
+
+def test_repeat_cleanup_stays_inside_synthetic_root_on_all_platforms(tmp_path):
+    owner = tmp_path / "acceptance"
+    run = owner / "mneme-cgm-repeat"
+    nested = run / "runtime" / "memory.mlfdir"
+    nested.mkdir(parents=True)
+    (nested / "HEAD").write_text("synthetic", encoding="utf-8")
+    fixture = tmp_path / "fixture.json"
+    fixture.write_text("{}", encoding="utf-8")
+    observer = ClaudeRuntimeEffectObserver(
+        owner,
+        fixture_path=fixture,
+        allowed_read_paths=(fixture,),
+    )
+
+    with observer:
+        _remove_exact_synthetic_run(run, owner)
+
+    assert not run.exists()
+    assert observer.evidence().forbidden_total() == 0
 
 
 def test_observer_is_inactive_after_context_exit(tmp_path):
