@@ -56,6 +56,14 @@ from .transactions import TransactionProposal
 _REPORT_DOMAIN = b"MNEME-CLAUDE-GLOBAL-ACCEPTANCE-REPORT-0.1"
 _RUN_DOMAIN = b"MNEME-CLAUDE-GLOBAL-ACCEPTANCE-RUN-0.1"
 _CASE_DOMAIN = b"MNEME-CLAUDE-GLOBAL-ACCEPTANCE-CASE-0.1"
+CLAUDE_REPORT_BYTE_REPRODUCIBILITY = "NOT_CLAIMED_SYNTHETIC_ROOT_SENSITIVE"
+CLAUDE_REPORT_ROOT_SENSITIVE_FIELDS = (
+    "artifact_runs[].activation_receipt_digest",
+    "artifact_runs[].import_receipt_digest",
+    "artifact_runs[].projection_receipt_digest",
+    "run_fingerprints[]",
+    "report_digest",
+)
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 _EXPECTED_EFFECTS_PATH = (
     _PROJECT_ROOT / "tests" / "fixtures" / "claude" / "expected-effects.json"
@@ -176,6 +184,8 @@ class ClaudeGlobalAcceptanceReport:
             "effects": self.effects.to_dict(),
             "effect_observation_scope": EFFECT_OBSERVATION_SCOPE,
             "effect_observation_not_claimed": list(EFFECT_OBSERVATION_NOT_CLAIMED),
+            "report_byte_reproducibility": CLAUDE_REPORT_BYTE_REPRODUCIBILITY,
+            "root_sensitive_fields": list(CLAUDE_REPORT_ROOT_SENSITIVE_FIELDS),
             "deterministic": self.deterministic,
             "run_fingerprints": list(self.run_fingerprints),
             "artifact_runs": list(self.artifact_runs),

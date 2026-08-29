@@ -46,6 +46,16 @@ def test_cgm_acceptance_has_exact_case_ownership(tmp_path):
         "native_ffi_containment",
         "os_level_sandbox",
     ]
+    assert payload["report_byte_reproducibility"] == (
+        "NOT_CLAIMED_SYNTHETIC_ROOT_SENSITIVE"
+    )
+    assert payload["root_sensitive_fields"] == [
+        "artifact_runs[].activation_receipt_digest",
+        "artifact_runs[].import_receipt_digest",
+        "artifact_runs[].projection_receipt_digest",
+        "run_fingerprints[]",
+        "report_digest",
+    ]
 
 
 def test_cgm_008_rejects_semantically_mutated_schema_resource(monkeypatch):

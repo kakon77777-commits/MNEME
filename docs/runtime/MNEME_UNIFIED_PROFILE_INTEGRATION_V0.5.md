@@ -74,6 +74,15 @@ sandbox. Native FFI calls can bypass CPython audit/profile events. Therefore
 `native_ffi_containment` and `os_level_sandbox` are explicitly not claimed; a
 zero counter is evidence only for the named observation scope.
 
+The complete Claude acceptance report is also not byte-reproducible across
+different synthetic roots. Projection, import, and activation receipts bind
+their selected synthetic paths, so the affected receipt digests, run
+fingerprints, and report digest change when the root changes. The report names
+those fields and declares
+`NOT_CLAIMED_SYNTHETIC_ROOT_SENSITIVE`. Cross-root comparison uses a canonical
+semantic digest after replacing only the declared root-sensitive fields; PASS
+status, cases, effects, and every other field must remain equal.
+
 ## Later gates not satisfied here
 
 The candidate does not resolve resident identity or grant private access. A
