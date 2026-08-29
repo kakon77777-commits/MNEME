@@ -152,6 +152,30 @@ PASS 1 maps only through MNEME-MD. PASS 2 receives only PASS 1 mapped records an
 
 Dry-Run/0.2 accepts no writable `MemoryStore` and exposes no deletion, migration, reconstruction, tombstoning, archive movement, seed promotion, profile promotion, or regenerative-forgetting path. Public fixtures remain synthetic; sanitized evidence removes private path/text/source-digest/projection-body material.
 
+## Explicit profile composition
+
+MNEME keeps one writable canonical `MemoryStore`. Markdown profiles, CPS,
+Dry-Run, Claude projection/import, and the SOACR adapter are explicit consumers
+or sidecars; none becomes a second canonical store.
+
+Built-in EveMiss profile selection is exact and caller-driven:
+
+```python
+from mneme import load_builtin_evemiss_profile_by_id
+
+profile = load_builtin_evemiss_profile_by_id("evemiss-residence/0.2")
+```
+
+Only `evemiss-residence/0.1` and `evemiss-residence/0.2` are accepted. There is
+no `auto` mode, content-based profile detection, fuzzy dialect selection, or
+implicit v0.1-to-v0.2 upgrade. The v0.1 bytes and semantic digest remain frozen;
+v0.2 is an explicit opt-in.
+
+CPS and Dry-Run run only through their existing explicit APIs. Ordinary SOACR
+recall and Claude global projection do not import or invoke either sidecar, and
+public profile selection grants no private read, write, migration, identity, or
+activation authority.
+
 ## Verification
 
 Python 3.11+:
