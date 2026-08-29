@@ -4,9 +4,13 @@ import json
 import subprocess
 from pathlib import Path
 
+from mneme.canonical import canonical_json_bytes, sha256_domain
+
 ROOT = Path(__file__).parents[1]
 INPUT_PINS = ROOT / "docs" / "evidence" / "2026-08-29-mneme-v0.5-input-pins.json"
+ACCEPTANCE = ROOT / "docs" / "evidence" / "2026-08-29-mneme-v0.5-acceptance.json"
 WORKFLOW = ROOT / ".github" / "workflows" / "mneme-unified-profile-integration.yml"
+ACCEPTANCE_DOMAIN = b"MNEME-UNIFIED-INTEGRATION-ACCEPTANCE-0.1"
 EXPECTED_PINS = {
     "schema": "mneme.unified-integration-input-pins/0.1",
     "remote_main": {
@@ -49,3 +53,38 @@ def test_combined_ci_fetches_history_required_by_git_object_pins():
     text = WORKFLOW.read_text(encoding="utf-8")
 
     assert "fetch-depth: 0" in text
+
+
+def test_final_acceptance_is_digest_bound_and_preserves_nonclaims():
+    payload = json.loads(ACCEPTANCE.read_text(encoding="utf-8"))
+    observed_digest = payload.pop("evidence_digest")
+
+    assert observed_digest == sha256_domain(
+        ACCEPTANCE_DOMAIN,
+        canonical_json_bytes(payload),
+    )
+    assert payload["candidate"]["verified_head"] == (
+        "959fa1b7794e0bbc83f4096da1536f59cbe22c9e"
+    )
+    assert payload["candidate"]["verified_tree"] == (
+        "2ea3fd26d33f211baa52327a7f0e494fa4d48a1f"
+    )
+    assert payload["tests"]["full"] == {
+        "passed": 347,
+        "skipped": 1,
+        "failed": 0,
+    }
+    assert all(
+        report["status"] == "PASS"
+        for report in payload["acceptance_surfaces"].values()
+    )
+    assert payload["dry_run_boundaries"]["canonical_store_mutated"] is False
+    assert payload["dry_run_boundaries"]["destructive_actions_performed"] is False
+    assert set(payload["claude_boundaries"]["local_activation_cases"].values()) == {
+        "NOT_RUN_LOCAL_ACTIVATION_REQUIRED"
+    }
+    for field, value in payload["claude_boundaries"]["effects"].items():
+        assert value == 0, field
+    encoded = canonical_json_bytes(payload).decode("utf-8")
+    for forbidden in ("C:\\\\Users\\\\", "D:\\\\", "AI_RESIDENCE", "USERPROFILE", "sk-"):
+        assert forbidden not in encoded
