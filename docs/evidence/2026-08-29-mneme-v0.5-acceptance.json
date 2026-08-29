@@ -2,8 +2,8 @@
   "schema": "mneme.unified-integration-acceptance/0.1",
   "candidate": {
     "branch": "feat/mneme-unified-profile-integration-v0.5",
-    "verified_head": "959fa1b7794e0bbc83f4096da1536f59cbe22c9e",
-    "verified_tree": "2ea3fd26d33f211baa52327a7f0e494fa4d48a1f",
+    "verified_head": "d9a1e008a50a23ddeaf247a78c3e520ef44dcba7",
+    "verified_tree": "76c090c655a670b692140758fd2587b32c3ffc7a",
     "package_name": "mneme-memory",
     "package_version": "0.5.0a1",
     "worktree_clean": true,
@@ -28,17 +28,20 @@
     "spec_ref": "docs/superpowers/specs/2026-08-29-mneme-unified-profile-integration-v0.5-design.md",
     "spec_bytes": 18761,
     "spec_sha256": "66B16B8EADC4E8A37061EA41919862D220E4970EC35A65AB6A0FE146B92F8073",
+    "design_delta_ref": "docs/superpowers/specs/2026-08-29-mneme-unified-profile-integration-v0.5-design-delta-001.md",
+    "design_delta_bytes": 2327,
+    "design_delta_sha256": "246F3D16A6CF445D6AE4F45B1E1EB870F30C2D8EDD399E66ABD5AAD5E13E9A95",
     "plan_ref": "docs/superpowers/plans/2026-08-29-mneme-unified-profile-integration-v0.5.md",
     "plan_bytes": 36072,
     "plan_sha256": "9B26C24266C11D202C073D7E1F9BE35565B407FC7BD0682E3C78AAA2C60BC799"
   },
   "tests": {
     "full": {
-      "passed": 347,
+      "passed": 348,
       "skipped": 1,
       "failed": 0
     },
-    "full_duration_seconds": 376.25,
+    "full_duration_seconds": 339.69,
     "retained_skip": {
       "test": "tests/test_claude_projection.py::test_symlink_target_is_refused",
       "reason": "windows_symlink_privilege_unavailable",
@@ -51,37 +54,37 @@
       "status": "PASS",
       "profile": "MLF-RM/0.1",
       "bytes": 571,
-      "sha256": "CF23038ACBC50895A8BFD528F08846A4B39D17B3BBAA19550EE234412D0D1303"
+      "sha256": "4E89330E83B5F05FDB2CE45826FB7D325118B8E6545CB68B16B90537C48BAD5F"
     },
     "memory_markdown_v01": {
       "status": "PASS",
       "profile": "MNEME-MD/0.1",
       "bytes": 760,
-      "sha256": "38B68BCCF08E630B6DD0FBD8A925131C7F7D13B7BA855C7C828A223FC9AA7E93"
+      "sha256": "B316574E69F3BB2A441C14C2F0C17DFCBCAB604CC147F79FE899E36DF1D4D1D7"
     },
     "evemiss_profile_v02": {
       "status": "PASS",
       "profile": "MNEME-MD-EVEMISS/0.2",
       "bytes": 560,
-      "sha256": "33343B08FCA943EE69992138BAD203A738CE011B5CD7CD27FDAAAFAD750C2D23"
+      "sha256": "4F13206EFBCA31720F90FDC7065D6B624352D216D9360B106B6F6BDFBE87FB42"
     },
     "cognitive_persistence": {
       "status": "PASS",
       "profile": "MNEME-CPS/0.1",
       "bytes": 1204,
-      "sha256": "F7535D56D6EA923C00EA97AD597D359CD60AE66EC5ACBF6C910AD9FC8C489864"
+      "sha256": "4142F4471499BC9771B53BEF009750618376C42D1C3B3D4AB422625F066CFB0D"
     },
     "private_residence_dry_run": {
       "status": "PASS",
       "profile": "MNEME-PRIVATE-RESIDENCE-DRY-RUN/0.2",
       "bytes": 1605,
-      "sha256": "6828B8D70542A5E810BA947D877A581B834B0183DA13FF0E1E7EDA6DB032C640"
+      "sha256": "0ED5234051415ECD7C393DEA82428C38D0E8866EE642F0E2410E10784C19FE37"
     },
     "claude_global_transition": {
       "status": "PASS",
       "report_version": "mneme.claude-global-acceptance-report/0.1",
-      "bytes": 6377,
-      "sha256": "29D4CF82BAB6D17B6C53462478199C3DD550C26F0F42A92E7C072C0F96D54AA3"
+      "bytes": 6513,
+      "sha256": "7B107C104BE4A70E1C28E115B1CD94AD16A6DF8AC781AD3F105B62F131685258"
     }
   },
   "dry_run_boundaries": {
@@ -97,6 +100,11 @@
     ]
   },
   "claude_boundaries": {
+    "effect_observation_scope": "cpython_audited_api_surface",
+    "effect_observation_not_claimed": [
+      "native_ffi_containment",
+      "os_level_sandbox"
+    ],
     "local_activation_cases": {
       "CGM-023": "NOT_RUN_LOCAL_ACTIVATION_REQUIRED",
       "CGM-024": "NOT_RUN_LOCAL_ACTIVATION_REQUIRED",
@@ -120,13 +128,13 @@
     "claude_memory_readback": "NOT_RUN"
   },
   "archive_wheel": {
-    "source": "git archive 959fa1b7794e0bbc83f4096da1536f59cbe22c9e",
+    "source": "git archive d9a1e008a50a23ddeaf247a78c3e520ef44dcba7",
     "pip_no_index": true,
     "no_dependencies": true,
     "no_build_isolation": true,
     "filename": "mneme_memory-0.5.0a1-py3-none-any.whl",
-    "bytes": 95116,
-    "sha256": "ED689F7D7F226E3BA87D4DD2AEEA9B4ADAF44192E028F9B56D474B9E937E29B1",
+    "bytes": 95245,
+    "sha256": "D9E22F30C18CAFA9BAE193DF9D0975AD477A337556C4A9B7FBDA94623B8D2818",
     "schema_count": 21,
     "schema_mismatches": 0,
     "root_schema_directory_present": false,
@@ -142,10 +150,19 @@
   "static_gates": {
     "changed_python_files": 44,
     "ruff": "PASS",
+    "ruff_version": "0.16.4",
     "compileall": "PASS",
     "diff_check": "PASS"
   },
   "independent_reviews": {
+    "final_review_revise": {
+      "verdict": "REVISE",
+      "blocking": 2,
+      "nonblocking": 1,
+      "reviewed_head": "d3add0862e89059781685e627805b42f640e1b3b",
+      "reviewed_tree": "7a9d3c7196cb3689bcb6ec76205335e3cfb9b25c",
+      "handoff_sha256": "148BE8DE5EAE9206A43D400830C57DC3AE26BA5E66AF6B5CB0C2D4E1113D51BA"
+    },
     "task6_fixwave_closure": {
       "verdict": "ACCEPT",
       "blocking": 0,
@@ -163,7 +180,9 @@
     "private_memory_access",
     "resident_identity",
     "provider_continuity",
+    "native_ffi_containment",
+    "os_level_sandbox",
     "cross_toolchain_wheel_reproducibility"
   ],
-  "evidence_digest": "5b0522eecd65b9b29c53e3554dbdf5e34e3be86924741bbc53d9b0d837f6b491"
+  "evidence_digest": "d53cc6e5ef6c527a4f23815ee94d145f09f634c31ce64252441e81eef95dc1e9"
 }

@@ -64,13 +64,13 @@ def test_final_acceptance_is_digest_bound_and_preserves_nonclaims():
         canonical_json_bytes(payload),
     )
     assert payload["candidate"]["verified_head"] == (
-        "959fa1b7794e0bbc83f4096da1536f59cbe22c9e"
+        "d9a1e008a50a23ddeaf247a78c3e520ef44dcba7"
     )
     assert payload["candidate"]["verified_tree"] == (
-        "2ea3fd26d33f211baa52327a7f0e494fa4d48a1f"
+        "76c090c655a670b692140758fd2587b32c3ffc7a"
     )
     assert payload["tests"]["full"] == {
-        "passed": 347,
+        "passed": 348,
         "skipped": 1,
         "failed": 0,
     }
@@ -80,6 +80,13 @@ def test_final_acceptance_is_digest_bound_and_preserves_nonclaims():
     )
     assert payload["dry_run_boundaries"]["canonical_store_mutated"] is False
     assert payload["dry_run_boundaries"]["destructive_actions_performed"] is False
+    assert payload["claude_boundaries"]["effect_observation_scope"] == (
+        "cpython_audited_api_surface"
+    )
+    assert payload["claude_boundaries"]["effect_observation_not_claimed"] == [
+        "native_ffi_containment",
+        "os_level_sandbox",
+    ]
     assert set(payload["claude_boundaries"]["local_activation_cases"].values()) == {
         "NOT_RUN_LOCAL_ACTIVATION_REQUIRED"
     }
