@@ -66,7 +66,13 @@ python -B scripts/validate_claude_global_memory.py --root <new-synthetic-root> -
 
 All inputs are repository fixtures or a new disposable synthetic root. The
 positive Claude acceptance population observes zero private, production,
-network, provider, MCP, Bridge, and external-command effects.
+network, provider, MCP, Bridge, and external-command effects within the
+`cpython_audited_api_surface` scope.
+
+The effect observer is an interpreter-level diagnostic, not an operating-system
+sandbox. Native FFI calls can bypass CPython audit/profile events. Therefore
+`native_ffi_containment` and `os_level_sandbox` are explicitly not claimed; a
+zero counter is evidence only for the named observation scope.
 
 ## Later gates not satisfied here
 

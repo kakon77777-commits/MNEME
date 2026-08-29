@@ -176,6 +176,10 @@ recall and Claude global projection do not import or invoke either sidecar, and
 public profile selection grants no private read, write, migration, identity, or
 activation authority.
 
+Claude effect counters cover the named `cpython_audited_api_surface` only. They
+are not native-FFI containment or an OS sandbox, so a zero counter must not be
+interpreted as proof against uninstrumented native code.
+
 ## Verification
 
 Python 3.11+:
@@ -212,6 +216,7 @@ Current work does not implement live LIMEN authorization, real Residence migrati
 - `docs/superpowers/specs/2026-08-28-private-residence-two-pass-dry-run-design.md`
 - `docs/superpowers/plans/2026-08-28-private-residence-two-pass-dry-run.md`
 - `docs/superpowers/specs/2026-08-29-mneme-unified-profile-integration-v0.5-design.md`
+- `docs/superpowers/specs/2026-08-29-mneme-unified-profile-integration-v0.5-design-delta-001.md`
 - `docs/superpowers/plans/2026-08-29-mneme-unified-profile-integration-v0.5.md`
 - `docs/runtime/MNEME_UNIFIED_PROFILE_INTEGRATION_V0.5.md`
 

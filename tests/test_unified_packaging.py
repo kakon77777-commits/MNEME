@@ -187,4 +187,6 @@ def test_combined_ci_names_all_six_acceptance_surfaces():
     assert "pip wheel" in text
     assert "--no-build-isolation" in text
     assert "--no-deps" in text
+    assert "name: Ruff changed Python" in text
+    assert "c21546a263920e0f80701696e1857c203917d701" in text
     assert "secrets." not in text

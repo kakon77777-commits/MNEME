@@ -26,6 +26,7 @@ LOCAL_CASES = {"CGM-023", "CGM-024", "CGM-026", "CGM-027"}
 
 def test_cgm_acceptance_has_exact_case_ownership(tmp_path):
     report = validate_claude_global_memory(tmp_path / "acceptance")
+    payload = report.to_dict()
     assert {case.case_id for case in report.cases} == SYNTHETIC_CASES | LOCAL_CASES
     assert all(
         case.executed and case.passed and case.status == "PASS"
@@ -40,6 +41,11 @@ def test_cgm_acceptance_has_exact_case_ownership(tmp_path):
         case_id: "NOT_RUN_LOCAL_ACTIVATION_REQUIRED" for case_id in LOCAL_CASES
     }
     assert report.status == "PASS"
+    assert payload["effect_observation_scope"] == "cpython_audited_api_surface"
+    assert payload["effect_observation_not_claimed"] == [
+        "native_ffi_containment",
+        "os_level_sandbox",
+    ]
 
 
 def test_cgm_008_rejects_semantically_mutated_schema_resource(monkeypatch):

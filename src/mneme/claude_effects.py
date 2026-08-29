@@ -12,6 +12,11 @@ from types import FrameType
 from typing import Any, Self
 
 _OBSERVATION_MODE = "cpython_audit_and_profile_v0.1"
+EFFECT_OBSERVATION_SCOPE = "cpython_audited_api_surface"
+EFFECT_OBSERVATION_NOT_CLAIMED = (
+    "native_ffi_containment",
+    "os_level_sandbox",
+)
 _PRIVATE_PARTS = frozenset(
     {
         "ai_residence",

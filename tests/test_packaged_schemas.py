@@ -129,7 +129,7 @@ def test_dev_extra_declares_no_build_isolation_prerequisites():
     project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     dev = set(project["project"]["optional-dependencies"]["dev"])
 
-    assert {"pytest>=8.0", "setuptools>=68", "wheel"} <= dev
+    assert {"pytest>=8.0", "ruff>=0.16,<0.17", "setuptools>=68", "wheel"} <= dev
 
 
 def test_clean_wheel_contains_one_canonical_schema_set(tmp_path: Path):

@@ -16,8 +16,8 @@ REAL_DIALECT_SYNTHETIC_FIXTURE = (
     ROOT / "fixtures" / "synthetic" / "memory-markdown-real-dialect-v02.md"
 )
 PROFILE_BYTES = {
-    "evemiss-residence-0.1.json": "9eb2441a8ae4a7e88f79cf1e1f296934f2f13257abdadaa02af585ae35e9ab7c",
-    "evemiss-residence-0.2.json": "b1997055c9d0e9e194fc52c25d5d558c5a5e323b9fafb5acb4d1c3476822ccc5",
+    "evemiss-residence-0.1.json": "4e2daa27ac79f0c50d965efbb340a67e71dd4a731f5b44f9015c36ed70174b35",
+    "evemiss-residence-0.2.json": "9896ee3464f203d2d0f8f0f9b23951bb471f90b833cba97382f7877f6b5153ba",
 }
 
 
@@ -74,9 +74,10 @@ def test_builtin_profile_source_bytes_remain_frozen():
     profile_root = ROOT / "profiles" / "memory-markdown"
 
     for name, expected_sha256 in PROFILE_BYTES.items():
-        assert hashlib.sha256((profile_root / name).read_bytes()).hexdigest() == (
-            expected_sha256
-        )
+        working_bytes = (profile_root / name).read_bytes()
+        canonical_lf = working_bytes.replace(b"\r\n", b"\n")
+        assert b"\r" not in canonical_lf
+        assert hashlib.sha256(canonical_lf).hexdigest() == expected_sha256
 
 
 def test_claude_and_soacr_hot_paths_do_not_import_dry_run_or_cps():

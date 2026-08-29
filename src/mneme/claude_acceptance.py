@@ -25,7 +25,11 @@ from .claude_contracts import (
     ClaudeGlobalProjectionRequest,
     LocalManualWriteAuthorization,
 )
-from .claude_effects import ClaudeRuntimeEffectObserver
+from .claude_effects import (
+    EFFECT_OBSERVATION_NOT_CLAIMED,
+    EFFECT_OBSERVATION_SCOPE,
+    ClaudeRuntimeEffectObserver,
+)
 from .claude_import import BEGIN, END, ClaudeManagedImport
 from .claude_projection import ClaudeProjectionPublisher
 from .errors import (
@@ -170,6 +174,8 @@ class ClaudeGlobalAcceptanceReport:
             "status": self.status,
             "cases": [case.to_dict() for case in self.cases],
             "effects": self.effects.to_dict(),
+            "effect_observation_scope": EFFECT_OBSERVATION_SCOPE,
+            "effect_observation_not_claimed": list(EFFECT_OBSERVATION_NOT_CLAIMED),
             "deterministic": self.deterministic,
             "run_fingerprints": list(self.run_fingerprints),
             "artifact_runs": list(self.artifact_runs),
