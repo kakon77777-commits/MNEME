@@ -317,9 +317,6 @@ class ClaudeGlobalActivation:
             plan.config.projection_target,
             None,
         )
-        publication = publisher.publish(publication_plan, context)
-        projection_receipt = publication.receipt
-
         managed_import = ClaudeManagedImport(
             plan.config.runtime_root,
             plan.config.user_memory_root,
@@ -327,10 +324,12 @@ class ClaudeGlobalActivation:
         )
         import_plan = managed_import.plan(
             plan.config.user_memory_target,
-            plan.config.projection_target,
+            publication_plan,
             _sha256_bytes(_SYNTHETIC_USER_MEMORY),
         )
-        import_receipt = managed_import.apply(import_plan, context, publication)
+        published_import = managed_import.apply(import_plan, context)
+        projection_receipt = published_import.publication_receipt
+        import_receipt = published_import.import_receipt
 
         receipt_material = {
             "activation_id": "activation:" + plan.plan_digest,

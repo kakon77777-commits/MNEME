@@ -143,14 +143,14 @@ def bound_publication(
 def test_publish_requires_verified_committed_context(tmp_path):
     publisher, plan, context, result, target = bound_publication(tmp_path)
 
-    publication = publisher.publish(plan, context)
+    receipt = publisher.publish(plan, context)
 
-    assert publication.verify(context, plan) is True
-    assert publication.receipt.transaction_ref == context.transaction_ref
-    assert publication.receipt.transaction_digest == context.transaction_digest
-    assert publication.receipt.committed_head == context.committed_head
-    assert publication.receipt.commit_receipt_digest == context.commit_receipt_digest
-    assert publication.receipt.target_after_sha256 == sha256(result.content)
+    assert receipt.verify() is True
+    assert receipt.transaction_ref == context.transaction_ref
+    assert receipt.transaction_digest == context.transaction_digest
+    assert receipt.committed_head == context.committed_head
+    assert receipt.commit_receipt_digest == context.commit_receipt_digest
+    assert receipt.target_after_sha256 == sha256(result.content)
     assert target.read_bytes() == result.content
 
 
@@ -221,8 +221,7 @@ def test_publish_atomically_replaces_and_returns_bound_receipt(tmp_path):
         before=b"old projection",
     )
 
-    publication = publisher.publish(selected, context)
-    receipt = publication.receipt
+    receipt = publisher.publish(selected, context)
 
     assert target.read_bytes() == result.content
     assert receipt.publication_plan_ref == selected.contract.plan_id
@@ -241,9 +240,9 @@ def test_publish_atomically_replaces_and_returns_bound_receipt(tmp_path):
 def test_missing_target_is_created_and_fresh_same_content_plan_is_idempotent(tmp_path):
     publisher, first_plan, context, result, target = bound_publication(tmp_path)
 
-    first = publisher.publish(first_plan, context).receipt
+    first = publisher.publish(first_plan, context)
     second_plan = publisher.plan(result, target, sha256(result.content))
-    second = publisher.publish(second_plan, context).receipt
+    second = publisher.publish(second_plan, context)
 
     assert target.read_bytes() == result.content
     assert first.target_before_sha256 is None
@@ -301,7 +300,7 @@ def test_two_publishers_cannot_both_win_one_preimage_cas(tmp_path, monkeypatch):
         except (StoreConflictError, StaleTargetError) as error:
             return "refused", type(error).__name__
         first_publish_done.set()
-        return "success", receipt.receipt.digest
+        return "success", receipt.digest
 
     with ThreadPoolExecutor(max_workers=2) as pool:
         outcomes = tuple(pool.map(lambda _: publish_once(), range(2)))

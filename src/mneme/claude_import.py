@@ -13,9 +13,11 @@ from .claude_contracts import (
     ClaudeGlobalProjectionManifest,
     ClaudeImportPlan,
     ClaudeImportReceipt,
+    ClaudePublicationReceipt,
 )
 from .claude_projection import (
-    VerifiedClaudePublication,
+    ClaudeProjectionPublisher,
+    PreparedClaudePublication,
     _file_ref,
     _fsync_directory,
     _has_git_ancestor,
@@ -60,20 +62,29 @@ class _ParsedUserMemory:
 class PreparedClaudeImport:
     contract: ClaudeImportPlan
     user_memory: Path
-    projection: Path
+    publication: PreparedClaudePublication
     manifest: ClaudeGlobalProjectionManifest
+
+    @property
+    def projection(self) -> Path:
+        return self.publication.target
 
     def verify(self) -> bool:
         if not isinstance(self.contract, ClaudeImportPlan):
             raise ClaudeContractError("import plan contract type is invalid")
         if not isinstance(self.user_memory, Path) or not self.user_memory.is_absolute():
             raise ClaudeContractError("user memory target must be an absolute Path")
-        if not isinstance(self.projection, Path) or not self.projection.is_absolute():
-            raise ClaudeContractError("projection target must be an absolute Path")
+        if not isinstance(self.publication, PreparedClaudePublication):
+            raise ClaudeContractError("prepared publication type is invalid")
         if not isinstance(self.manifest, ClaudeGlobalProjectionManifest):
             raise ClaudeContractError("import manifest type is invalid")
         self.contract.verify()
+        self.publication.verify()
         self.manifest.verify()
+        if self.contract.publication_plan_ref != self.publication.contract.plan_id:
+            raise ClaudeContractError("import publication plan ref mismatch")
+        if self.contract.publication_plan_digest != self.publication.contract.digest:
+            raise ClaudeContractError("import publication plan digest mismatch")
         if self.contract.projection_ref != self.manifest.projection_ref:
             raise ClaudeContractError("import projection ref mismatch")
         if self.contract.projection_digest != self.manifest.digest:
@@ -82,10 +93,39 @@ class PreparedClaudeImport:
             raise ClaudeContractError("import projection content digest mismatch")
         if self.contract.projection_content_bytes != self.manifest.content_bytes:
             raise ClaudeContractError("import projection byte count mismatch")
+        if self.publication.manifest.digest != self.manifest.digest:
+            raise ClaudeContractError("import publication manifest mismatch")
+        if self.publication.contract.projection_ref != self.manifest.projection_ref:
+            raise ClaudeContractError("import publication projection ref mismatch")
+        if self.publication.contract.projection_digest != self.manifest.digest:
+            raise ClaudeContractError("import publication projection digest mismatch")
+        if self.publication.contract.content_sha256 != self.manifest.content_sha256:
+            raise ClaudeContractError("import publication content digest mismatch")
+        if self.publication.contract.content_bytes != self.manifest.content_bytes:
+            raise ClaudeContractError("import publication byte count mismatch")
         if self.contract.projection_path_ref != _file_ref(self.projection):
             raise ClaudeContractError("import projection path ref mismatch")
         if self.contract.user_memory_ref != _file_ref(self.user_memory):
             raise ClaudeContractError("import user memory ref mismatch")
+        return True
+
+
+@dataclass(frozen=True)
+class ClaudePublishedImportResult:
+    publication_receipt: ClaudePublicationReceipt
+    import_receipt: ClaudeImportReceipt
+
+    def verify(self) -> bool:
+        if not isinstance(self.publication_receipt, ClaudePublicationReceipt):
+            raise ClaudeContractError("published import publication receipt is invalid")
+        if not isinstance(self.import_receipt, ClaudeImportReceipt):
+            raise ClaudeContractError("published import receipt is invalid")
+        self.publication_receipt.verify()
+        self.import_receipt.verify()
+        if self.import_receipt.publication_receipt_ref != self.publication_receipt.receipt_id:
+            raise ClaudeContractError("published import receipt ref mismatch")
+        if self.import_receipt.publication_receipt_digest != self.publication_receipt.digest:
+            raise ClaudeContractError("published import receipt digest mismatch")
         return True
 
 
@@ -117,18 +157,19 @@ class ClaudeManagedImport:
     def plan(
         self,
         user_memory: Path,
-        projection: Path,
+        publication: PreparedClaudePublication,
         expected_digest: str | None,
     ) -> PreparedClaudeImport:
         self._manifest.verify()
-        selected_projection = self._validate_projection(Path(projection))
-        selected_user_memory = self._validate_user_memory(Path(user_memory))
-        projection_bytes, projection_digest = self._read_file(
-            selected_projection,
-            allow_missing=False,
-            label="projection",
+        if not isinstance(publication, PreparedClaudePublication):
+            raise ClaudeContractError("prepared publication type is invalid")
+        publication.verify()
+        selected_projection = self._validate_projection(
+            publication.target,
+            must_exist=False,
         )
-        self._require_projection_match(projection_bytes, projection_digest)
+        selected_user_memory = self._validate_user_memory(Path(user_memory))
+        self._require_publication_match(publication)
         _validate_optional_digest(expected_digest, field="expected_digest")
         user_bytes, observed_user_digest = self._read_file(
             selected_user_memory,
@@ -140,6 +181,8 @@ class ClaudeManagedImport:
         _parse_user_memory(user_bytes or b"")
 
         identity_material = {
+            "publication_plan_ref": publication.contract.plan_id,
+            "publication_plan_digest": publication.contract.digest,
             "projection_ref": self._manifest.projection_ref,
             "projection_digest": self._manifest.digest,
             "projection_path_ref": _file_ref(selected_projection),
@@ -164,7 +207,7 @@ class ClaudeManagedImport:
         prepared = PreparedClaudeImport(
             contract=contract,
             user_memory=selected_user_memory,
-            projection=selected_projection,
+            publication=publication,
             manifest=self._manifest,
         )
         prepared.verify()
@@ -174,23 +217,25 @@ class ClaudeManagedImport:
         self,
         plan: PreparedClaudeImport,
         context: VerifiedClaudeWriteContext,
-        publication: VerifiedClaudePublication,
-    ) -> ClaudeImportReceipt:
+    ) -> ClaudePublishedImportResult:
         if not isinstance(plan, PreparedClaudeImport):
             raise ClaudeContractError("prepared import type is invalid")
         plan.verify()
         if not isinstance(context, VerifiedClaudeWriteContext):
             raise ManualAuthorityError("verified Claude write context is required")
-        if not isinstance(publication, VerifiedClaudePublication):
-            raise ManualAuthorityError("verified publication capability is required")
         context.verify_projection(plan.manifest)
-        self._validate_publication(plan, context, publication)
-        projection = self._validate_projection(plan.projection)
+        self._require_publication_match(plan.publication)
+        projection = self._validate_projection(plan.projection, must_exist=False)
         user_memory = self._validate_user_memory(plan.user_memory)
         if _file_ref(projection) != plan.contract.projection_path_ref:
             raise ClaudeContractError("projection path changed after planning")
         if _file_ref(user_memory) != plan.contract.user_memory_ref:
             raise ClaudeContractError("user memory path changed after planning")
+        publication_receipt = ClaudeProjectionPublisher(self._runtime_root).publish(
+            plan.publication,
+            context,
+        )
+        self._validate_publication(plan, context, publication_receipt)
         self._validate_lock_path(self._projection_lock, "projection writer lock")
         self._validate_lock_path(self._import_lock, "managed import writer lock")
 
@@ -198,106 +243,118 @@ class ClaudeManagedImport:
             StoreWriterLock(self._projection_lock),
             StoreWriterLock(self._import_lock),
         ):
-            return self._apply_locked(plan, context, publication)
-
-    def _apply_locked(
-        self,
-        plan: PreparedClaudeImport,
-        context: VerifiedClaudeWriteContext,
-        publication: VerifiedClaudePublication,
-    ) -> ClaudeImportReceipt:
-        context.verify_projection(plan.manifest)
-        self._validate_publication(plan, context, publication)
-        projection = self._validate_projection(plan.projection)
-        user_memory = self._validate_user_memory(plan.user_memory)
-        projection_bytes, projection_digest = self._read_file(
-            projection,
-            allow_missing=False,
-            label="projection",
-        )
-        self._require_projection_match(projection_bytes, projection_digest)
-        if projection_digest != plan.contract.projection_content_sha256:
-            raise StaleTargetError("projection changed after planning")
-
-        user_bytes, before_digest = self._read_file(
-            user_memory,
-            allow_missing=True,
-            label="user memory",
-        )
-        if before_digest != plan.contract.user_memory_preimage_sha256:
-            raise StaleTargetError("user memory changed after planning")
-        before = user_bytes or b""
-        parsed = _parse_user_memory(before)
-        block = _managed_block(projection)
-        desired, outcome = _render_user_memory(before, parsed, block)
-
-        second_projection, second_projection_digest = self._read_file(
-            projection,
-            allow_missing=False,
-            label="projection",
-        )
-        self._require_projection_match(second_projection, second_projection_digest)
-        if second_projection_digest != projection_digest:
-            raise StaleTargetError("projection changed before managed import")
-
-        if outcome != "idempotent":
-            self._replace_atomically(
-                user_memory,
-                desired,
-                expected_preimage=before_digest,
+            context.verify_projection(plan.manifest)
+            self._validate_publication(plan, context, publication_receipt)
+            projection = self._validate_projection(plan.projection, must_exist=True)
+            user_memory = self._validate_user_memory(plan.user_memory)
+            projection_bytes, projection_digest = self._read_file(
+                projection,
+                allow_missing=False,
+                label="projection",
             )
-        readback, after_digest = self._read_file(
-            user_memory,
-            allow_missing=False,
-            label="user memory",
-        )
-        if readback != desired or after_digest != _sha256_bytes(desired):
-            raise ClaudeContractError("managed import readback mismatch")
+            self._require_projection_match(projection_bytes, projection_digest)
+            if projection_digest != plan.contract.projection_content_sha256:
+                raise StaleTargetError("projection changed after planning")
 
-        authorization = context.authorization
-        receipt_identity = {
-            "import_plan_ref": plan.contract.plan_id,
-            "import_plan_digest": plan.contract.digest,
-            "authorization_ref": authorization.authorization_id,
-            "authorization_digest": authorization.digest,
-            "transaction_ref": context.transaction_ref,
-            "transaction_digest": context.transaction_digest,
-            "committed_head": context.committed_head,
-            "commit_receipt_digest": context.commit_receipt_digest,
-            "publication_receipt_ref": publication.receipt.receipt_id,
-            "publication_receipt_digest": publication.receipt.digest,
-            "projection_ref": plan.contract.projection_ref,
-            "projection_digest": plan.contract.projection_digest,
-            "user_memory_ref": plan.contract.user_memory_ref,
-            "user_memory_before_sha256": before_digest,
-            "user_memory_after_sha256": after_digest,
-            "readback_sha256": after_digest,
-            "managed_block_sha256": _sha256_bytes(block),
-            "outside_bytes_preserved": True,
-            "outcome": outcome,
-            "claude_memory_readback": "NOT_RUN",
-        }
-        receipt_id = "import-receipt:" + sha256_domain(
-            _RECEIPT_ID_DOMAIN,
-            canonical_json_bytes(receipt_identity),
-        )
-        return ClaudeImportReceipt.sealed(
-            {
-                "import_receipt_version": "mneme.claude-import-receipt/0.1",
-                "receipt_id": receipt_id,
-                **receipt_identity,
-                "not_claimed": list(CLAUDE_GLOBAL_NONCLAIMS),
+            user_bytes, before_digest = self._read_file(
+                user_memory,
+                allow_missing=True,
+                label="user memory",
+            )
+            if before_digest != plan.contract.user_memory_preimage_sha256:
+                raise StaleTargetError("user memory changed after planning")
+            before = user_bytes or b""
+            parsed = _parse_user_memory(before)
+            block = _managed_block(projection)
+            desired, outcome = _render_user_memory(before, parsed, block)
+
+            second_projection, second_projection_digest = self._read_file(
+                projection,
+                allow_missing=False,
+                label="projection",
+            )
+            self._require_projection_match(second_projection, second_projection_digest)
+            if second_projection_digest != projection_digest:
+                raise StaleTargetError("projection changed before managed import")
+
+            if outcome != "idempotent":
+                self._replace_atomically(
+                    user_memory,
+                    desired,
+                    expected_preimage=before_digest,
+                )
+            readback, after_digest = self._read_file(
+                user_memory,
+                allow_missing=False,
+                label="user memory",
+            )
+            if readback != desired or after_digest != _sha256_bytes(desired):
+                raise ClaudeContractError("managed import readback mismatch")
+
+            authorization = context.authorization
+            receipt_identity = {
+                "import_plan_ref": plan.contract.plan_id,
+                "import_plan_digest": plan.contract.digest,
+                "authorization_ref": authorization.authorization_id,
+                "authorization_digest": authorization.digest,
+                "transaction_ref": context.transaction_ref,
+                "transaction_digest": context.transaction_digest,
+                "committed_head": context.committed_head,
+                "commit_receipt_digest": context.commit_receipt_digest,
+                "publication_receipt_ref": publication_receipt.receipt_id,
+                "publication_receipt_digest": publication_receipt.digest,
+                "projection_ref": plan.contract.projection_ref,
+                "projection_digest": plan.contract.projection_digest,
+                "user_memory_ref": plan.contract.user_memory_ref,
+                "user_memory_before_sha256": before_digest,
+                "user_memory_after_sha256": after_digest,
+                "readback_sha256": after_digest,
+                "managed_block_sha256": _sha256_bytes(block),
+                "outside_bytes_preserved": True,
+                "outcome": outcome,
+                "claude_memory_readback": "NOT_RUN",
             }
-        )
+            receipt_id = "import-receipt:" + sha256_domain(
+                _RECEIPT_ID_DOMAIN,
+                canonical_json_bytes(receipt_identity),
+            )
+            import_receipt = ClaudeImportReceipt.sealed(
+                {
+                    "import_receipt_version": "mneme.claude-import-receipt/0.1",
+                    "receipt_id": receipt_id,
+                    **receipt_identity,
+                    "not_claimed": list(CLAUDE_GLOBAL_NONCLAIMS),
+                }
+            )
+        result = ClaudePublishedImportResult(publication_receipt, import_receipt)
+        result.verify()
+        return result
 
     @staticmethod
     def _validate_publication(
         plan: PreparedClaudeImport,
         context: VerifiedClaudeWriteContext,
-        publication: VerifiedClaudePublication,
+        receipt: ClaudePublicationReceipt,
     ) -> None:
-        publication.verify_context(context)
-        receipt = publication.receipt
+        if not isinstance(receipt, ClaudePublicationReceipt):
+            raise ManualAuthorityError("publisher receipt type is invalid")
+        receipt.verify()
+        if receipt.publication_plan_ref != plan.contract.publication_plan_ref:
+            raise ManualAuthorityError("publication plan ref mismatch")
+        if receipt.publication_plan_digest != plan.contract.publication_plan_digest:
+            raise ManualAuthorityError("publication plan digest mismatch")
+        if receipt.authorization_ref != context.authorization.authorization_id:
+            raise ManualAuthorityError("publication authorization ref mismatch")
+        if receipt.authorization_digest != context.authorization.digest:
+            raise ManualAuthorityError("publication authorization digest mismatch")
+        if receipt.transaction_ref != context.transaction_ref:
+            raise ManualAuthorityError("publication transaction ref mismatch")
+        if receipt.transaction_digest != context.transaction_digest:
+            raise ManualAuthorityError("publication transaction digest mismatch")
+        if receipt.committed_head != context.committed_head:
+            raise ManualAuthorityError("publication committed head mismatch")
+        if receipt.commit_receipt_digest != context.commit_receipt_digest:
+            raise ManualAuthorityError("publication commit receipt digest mismatch")
         if receipt.projection_ref != plan.contract.projection_ref:
             raise ManualAuthorityError("publication projection ref mismatch")
         if receipt.projection_digest != plan.contract.projection_digest:
@@ -311,17 +368,33 @@ class ClaudeManagedImport:
         if receipt.content_bytes != plan.contract.projection_content_bytes:
             raise ManualAuthorityError("publication content byte mismatch")
 
-    def _validate_projection(self, projection: Path) -> Path:
+    def _validate_projection(self, projection: Path, *, must_exist: bool) -> Path:
         root = self._validate_root(self._runtime_root, "runtime root")
         selected = self._validate_bounded_path(
             projection,
             root,
-            must_exist=True,
+            must_exist=must_exist,
             label="projection",
         )
         if selected.name != "MNEME_GLOBAL.md":
             raise ClaudePathBoundaryError("projection filename must be MNEME_GLOBAL.md")
         return selected
+
+    def _require_publication_match(
+        self,
+        publication: PreparedClaudePublication,
+    ) -> None:
+        publication.verify()
+        if publication.manifest.digest != self._manifest.digest:
+            raise ClaudeContractError("publication manifest does not match importer")
+        if publication.contract.projection_ref != self._manifest.projection_ref:
+            raise ClaudeContractError("publication projection ref does not match importer")
+        if publication.contract.projection_digest != self._manifest.digest:
+            raise ClaudeContractError("publication projection digest does not match importer")
+        if publication.contract.content_sha256 != self._manifest.content_sha256:
+            raise ClaudeContractError("publication content digest does not match importer")
+        if publication.contract.content_bytes != self._manifest.content_bytes:
+            raise ClaudeContractError("publication byte count does not match importer")
 
     def _validate_user_memory(self, user_memory: Path) -> Path:
         root = self._validate_root(self._user_memory_root, "user memory root")

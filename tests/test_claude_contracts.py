@@ -137,6 +137,8 @@ def import_plan_material(manifest, **changes):
     value = {
         "import_plan_version": "mneme.claude-import-plan/0.1",
         "plan_id": "import-plan:synthetic:one",
+        "publication_plan_ref": "publication-plan:synthetic:one",
+        "publication_plan_digest": "7" * 64,
         "projection_ref": manifest.projection_ref,
         "projection_digest": manifest.digest,
         "projection_path_ref": "file-ref:synthetic:MNEME_GLOBAL.md",

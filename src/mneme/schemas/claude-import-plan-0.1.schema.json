@@ -4,10 +4,12 @@
   "title": "MNEME ClaudeImportPlan 0.1",
   "type": "object",
   "additionalProperties": false,
-  "required": ["import_plan_version", "plan_id", "projection_ref", "projection_digest", "projection_path_ref", "projection_content_sha256", "projection_content_bytes", "user_memory_ref", "user_memory_preimage_sha256", "managed_block_version", "not_claimed", "plan_digest"],
+  "required": ["import_plan_version", "plan_id", "publication_plan_ref", "publication_plan_digest", "projection_ref", "projection_digest", "projection_path_ref", "projection_content_sha256", "projection_content_bytes", "user_memory_ref", "user_memory_preimage_sha256", "managed_block_version", "not_claimed", "plan_digest"],
   "properties": {
     "import_plan_version": {"const": "mneme.claude-import-plan/0.1"},
     "plan_id": {"type": "string", "minLength": 1},
+    "publication_plan_ref": {"type": "string", "minLength": 1},
+    "publication_plan_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
     "projection_ref": {"type": "string", "minLength": 1},
     "projection_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
     "projection_path_ref": {"type": "string", "minLength": 1},

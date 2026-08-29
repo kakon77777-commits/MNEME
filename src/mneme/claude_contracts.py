@@ -294,6 +294,14 @@ class ClaudeImportPlan(_ClaudeContract):
         return cast(str, self._field("plan_id"))
 
     @property
+    def publication_plan_ref(self) -> str:
+        return cast(str, self._field("publication_plan_ref"))
+
+    @property
+    def publication_plan_digest(self) -> str:
+        return cast(str, self._field("publication_plan_digest"))
+
+    @property
     def projection_ref(self) -> str:
         return cast(str, self._field("projection_ref"))
 

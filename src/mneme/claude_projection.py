@@ -41,7 +41,6 @@ _STRONG_PRIVATE_PARTS = frozenset(
 )
 _FORBIDDEN_RELATIVE_PARTS = frozenset(("temp", "tmp", "network", "repo", ".git"))
 _CRASH_POINTS = frozenset(("before_replace", "after_replace"))
-_PUBLICATION_CAPABILITY_ISSUER = object()
 
 
 @dataclass(frozen=True)
@@ -76,65 +75,6 @@ class PreparedClaudePublication:
             raise ClaudeContractError("publication content/manifest digest mismatch")
         if self.contract.target_ref != _file_ref(self.target):
             raise ClaudeContractError("publication target ref mismatch")
-        return True
-
-
-@dataclass(frozen=True)
-class VerifiedClaudePublication:
-    receipt: ClaudePublicationReceipt
-    _issuer: object
-
-    @classmethod
-    def _issued(cls, receipt: ClaudePublicationReceipt) -> VerifiedClaudePublication:
-        return cls(receipt=receipt, _issuer=_PUBLICATION_CAPABILITY_ISSUER)
-
-    def verify_context(self, context: VerifiedClaudeWriteContext) -> bool:
-        if self._issuer is not _PUBLICATION_CAPABILITY_ISSUER:
-            raise ManualAuthorityError("publication capability issuer is invalid")
-        if not isinstance(self.receipt, ClaudePublicationReceipt):
-            raise ClaudeContractError("publication capability receipt type is invalid")
-        if not isinstance(context, VerifiedClaudeWriteContext):
-            raise ManualAuthorityError("verified Claude write context is required")
-        context.verify()
-        self.receipt.verify()
-        if self.receipt.authorization_ref != context.authorization.authorization_id:
-            raise ManualAuthorityError("publication authorization ref mismatch")
-        if self.receipt.authorization_digest != context.authorization.digest:
-            raise ManualAuthorityError("publication authorization digest mismatch")
-        if self.receipt.transaction_ref != context.transaction_ref:
-            raise ManualAuthorityError("publication transaction ref mismatch")
-        if self.receipt.transaction_digest != context.transaction_digest:
-            raise ManualAuthorityError("publication transaction digest mismatch")
-        if self.receipt.committed_head != context.committed_head:
-            raise ManualAuthorityError("publication committed head mismatch")
-        if self.receipt.commit_receipt_digest != context.commit_receipt_digest:
-            raise ManualAuthorityError("publication commit receipt digest mismatch")
-        return True
-
-    def verify(
-        self,
-        context: VerifiedClaudeWriteContext,
-        plan: PreparedClaudePublication,
-    ) -> bool:
-        self.verify_context(context)
-        if not isinstance(plan, PreparedClaudePublication):
-            raise ClaudeContractError("prepared publication type is invalid")
-        plan.verify()
-        receipt = self.receipt
-        if receipt.publication_plan_ref != plan.contract.plan_id:
-            raise ClaudeContractError("publication capability plan ref mismatch")
-        if receipt.publication_plan_digest != plan.contract.digest:
-            raise ClaudeContractError("publication capability plan digest mismatch")
-        if receipt.projection_ref != plan.contract.projection_ref:
-            raise ClaudeContractError("publication capability projection ref mismatch")
-        if receipt.projection_digest != plan.contract.projection_digest:
-            raise ClaudeContractError("publication capability projection digest mismatch")
-        if receipt.target_ref != plan.contract.target_ref:
-            raise ClaudeContractError("publication capability target ref mismatch")
-        if receipt.target_after_sha256 != plan.contract.content_sha256:
-            raise ClaudeContractError("publication capability content digest mismatch")
-        if receipt.content_bytes != plan.contract.content_bytes:
-            raise ClaudeContractError("publication capability content byte mismatch")
         return True
 
 
@@ -195,7 +135,7 @@ class ClaudeProjectionPublisher:
         self,
         plan: PreparedClaudePublication,
         context: VerifiedClaudeWriteContext,
-    ) -> VerifiedClaudePublication:
+    ) -> ClaudePublicationReceipt:
         if not isinstance(plan, PreparedClaudePublication):
             raise ClaudeContractError("prepared publication type is invalid")
         plan.verify()
@@ -214,7 +154,7 @@ class ClaudeProjectionPublisher:
         self,
         plan: PreparedClaudePublication,
         context: VerifiedClaudeWriteContext,
-    ) -> VerifiedClaudePublication:
+    ) -> ClaudePublicationReceipt:
         target = self._validate_target(plan.target)
         if _file_ref(target) != plan.contract.target_ref:
             raise ClaudeContractError("publication target changed after planning")
@@ -261,7 +201,7 @@ class ClaudeProjectionPublisher:
             _RECEIPT_ID_DOMAIN,
             canonical_json_bytes(receipt_identity),
         )
-        receipt = ClaudePublicationReceipt.sealed(
+        return ClaudePublicationReceipt.sealed(
             {
                 "publication_receipt_version": "mneme.claude-publication-receipt/0.1",
                 "receipt_id": receipt_id,
@@ -269,9 +209,6 @@ class ClaudeProjectionPublisher:
                 "not_claimed": list(CLAUDE_GLOBAL_NONCLAIMS),
             }
         )
-        publication = VerifiedClaudePublication._issued(receipt)
-        publication.verify(context, plan)
-        return publication
 
     def _validate_writer_lock_path(self) -> None:
         path = self._writer_lock_path
