@@ -39,7 +39,13 @@ from .errors import (
     StoreConflictError,
 )
 from .records import MemoryRecord
-from .schemas import UNIFIED_SCHEMA_NAMES, read_schema_bytes, schema_names
+from .schemas import (
+    SCHEMA_DIGEST_MANIFEST_NAME,
+    UNIFIED_SCHEMA_NAMES,
+    read_schema_bytes,
+    schema_digest_manifest,
+    schema_names,
+)
 from .store import MemoryStore
 from .transactions import TransactionProposal
 
@@ -310,6 +316,7 @@ def _acceptance_allowed_read_paths() -> tuple[Path, ...]:
         Path(str(item))
         for item in files("mneme.schemas").iterdir()
         if item.name.endswith(".schema.json")
+        or item.name == SCHEMA_DIGEST_MANIFEST_NAME
     )
     source_paths = tuple(Path(__file__).parent / name for name in _RUNTIME_SCAN_NAMES)
     return (_EXPECTED_EFFECTS_PATH, *schema_paths, *source_paths)
@@ -665,9 +672,13 @@ def _case_budget_16001_refusal() -> bool:
 
 
 def _case_schema_resources() -> bool:
-    names = schema_names()
+    try:
+        names = schema_names()
+        pinned = schema_digest_manifest()
+    except (OSError, TypeError, ValueError):
+        return False
     return names == UNIFIED_SCHEMA_NAMES and all(
-        len(hashlib.sha256(read_schema_bytes(name)).hexdigest()) == 64
+        hashlib.sha256(read_schema_bytes(name)).hexdigest() == pinned[name]
         for name in names
     )
 

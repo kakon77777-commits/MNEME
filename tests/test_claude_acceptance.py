@@ -42,6 +42,26 @@ def test_cgm_acceptance_has_exact_case_ownership(tmp_path):
     assert report.status == "PASS"
 
 
+def test_cgm_008_rejects_semantically_mutated_schema_resource(monkeypatch):
+    original = claude_acceptance.read_schema_bytes
+
+    def semantically_mutated(name: str) -> bytes:
+        payload = original(name)
+        if name != "route-0.1.schema.json":
+            return payload
+        changed = payload.replace(
+            b'"additionalProperties": false',
+            b'"additionalProperties": true',
+            1,
+        )
+        assert changed != payload
+        return changed
+
+    monkeypatch.setattr(claude_acceptance, "read_schema_bytes", semantically_mutated)
+
+    assert claude_acceptance._case_schema_resources() is False
+
+
 def test_two_runs_are_byte_and_digest_deterministic(tmp_path):
     report = validate_claude_global_memory(tmp_path / "acceptance")
     assert report.deterministic is True

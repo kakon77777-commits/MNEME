@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from importlib.resources import files
 from pathlib import Path
 
@@ -42,6 +43,19 @@ def test_unified_schema_inventory_is_one_package_resource_set():
     assert observed == EXPECTED_SCHEMA_NAMES
     assert set(schema_names()) == EXPECTED_SCHEMA_NAMES
     assert not (ROOT / "schemas").exists()
+
+
+def test_unified_schema_digest_manifest_pins_every_resource_byte():
+    from mneme.schemas import schema_digest_manifest
+
+    pinned = schema_digest_manifest()
+
+    assert set(pinned) == EXPECTED_SCHEMA_NAMES
+    for name, expected_sha256 in pinned.items():
+        observed_sha256 = hashlib.sha256(
+            files("mneme.schemas").joinpath(name).read_bytes()
+        ).hexdigest()
+        assert observed_sha256 == expected_sha256
 
 
 def test_all_dry_run_contracts_load_from_the_installed_resource_set():

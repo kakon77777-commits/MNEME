@@ -6,10 +6,12 @@ import os
 import shutil
 import subprocess
 import sys
+import tomllib
 import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).parents[1]
+DIGEST_MANIFEST_NAME = "unified-schema-digests-v0.5.json"
 SCHEMA_NAMES = (
     "claude-global-projection-manifest-0.1.schema.json",
     "claude-global-projection-request-0.1.schema.json",
@@ -105,6 +107,15 @@ def _source_schema_hashes() -> dict[str, str]:
     }
 
 
+def _pinned_schema_hashes() -> dict[str, str]:
+    manifest = json.loads(
+        (ROOT / "src" / "mneme" / "schemas" / DIGEST_MANIFEST_NAME).read_text(
+            encoding="utf-8"
+        )
+    )
+    return manifest["schema_sha256"]
+
+
 def test_all_source_schema_resources_use_canonical_lf_bytes():
     schema_root = ROOT / "src" / "mneme" / "schemas"
     for name in SCHEMA_NAMES:
@@ -112,6 +123,13 @@ def test_all_source_schema_resources_use_canonical_lf_bytes():
         assert b"\r" not in raw, f"{name} contains noncanonical CR bytes"
         assert raw.endswith(b"\n"), f"{name} lacks one terminal LF"
         assert not raw.endswith(b"\n\n"), f"{name} has duplicate terminal LF"
+
+
+def test_dev_extra_declares_no_build_isolation_prerequisites():
+    project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    dev = set(project["project"]["optional-dependencies"]["dev"])
+
+    assert {"pytest>=8.0", "setuptools>=68", "wheel"} <= dev
 
 
 def test_clean_wheel_contains_one_canonical_schema_set(tmp_path: Path):
@@ -127,14 +145,14 @@ def test_clean_wheel_contains_one_canonical_schema_set(tmp_path: Path):
     assert not (ROOT / "schemas").exists()
 
 
-def test_clean_installed_runtime_loads_exact_source_schema_hashes(tmp_path: Path):
+def test_clean_installed_runtime_loads_exact_pinned_schema_hashes(tmp_path: Path):
     wheel = _build_wheel(tmp_path)
     install = _install_wheel(wheel, tmp_path)
     isolated = tmp_path / "isolated"
     isolated.mkdir()
     code = (
         "import json\n"
-        "from mneme.schemas import schema_sha256\n"
+        "from mneme.schemas import schema_digest_manifest, schema_sha256\n"
         "from mneme.records import MemoryRecord\n"
         "from mneme.transactions import TransactionProposal\n"
         "from mneme.routes import Route\n"
@@ -144,7 +162,8 @@ def test_clean_installed_runtime_loads_exact_source_schema_hashes(tmp_path: Path
         "from mneme.dry_run.intents import FactorizationIntent, SeedIntent\n"
         "from mneme.dry_run.report import DryRunReport\n"
         f"names = {SCHEMA_NAMES!r}\n"
-        "print(json.dumps({name: schema_sha256(name) for name in names}, sort_keys=True))\n"
+        "observed = {name: schema_sha256(name) for name in names}\n"
+        "print(json.dumps({'observed': observed, 'pinned': schema_digest_manifest()}, sort_keys=True))\n"
     )
     environment = os.environ.copy()
     environment["PYTHONDONTWRITEBYTECODE"] = "1"
@@ -159,4 +178,7 @@ def test_clean_installed_runtime_loads_exact_source_schema_hashes(tmp_path: Path
     )
 
     assert result.returncode == 0, result.stdout + result.stderr
-    assert json.loads(result.stdout) == _source_schema_hashes()
+    payload = json.loads(result.stdout)
+    assert payload["observed"] == _pinned_schema_hashes()
+    assert payload["pinned"] == _pinned_schema_hashes()
+    assert _source_schema_hashes() == _pinned_schema_hashes()

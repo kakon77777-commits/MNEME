@@ -1,0 +1,27 @@
+{
+  "schema": "mneme.unified-schema-digest-manifest/0.1",
+  "profile": "mneme.unified/0.5",
+  "schema_sha256": {
+    "claude-global-projection-manifest-0.1.schema.json": "5c782b2ddc78374737a388886d047de6292314a1d0171bcd03ec9742dd82906b",
+    "claude-global-projection-request-0.1.schema.json": "2305e6c70c81c3024b864808956670c60a97b9f0f2e76eed64a0d7e81e56fb3c",
+    "claude-import-plan-0.1.schema.json": "c946bb1f888a06e45d8253bed72383004623e94e2bbc910c7514475a2aad3016",
+    "claude-import-receipt-0.1.schema.json": "307c6cf4fe3a3ce73bf79f7f241b8e798bd7879fc4ec624719ed0eafccb22c50",
+    "claude-publication-plan-0.1.schema.json": "0062de6288f283f4372a2fff896c7260c39b528f6951939f4bc1769f8845f34b",
+    "claude-publication-receipt-0.1.schema.json": "12cc5dee037fefa65ac5bdd42f3d7d5373cff22c3147535e4957a615f5f98ec4",
+    "cognitive-seed-proposal-0.1.schema.json": "bcea3fa8a66e3b23d2e04ada682b2ae4e0c56cd590f6a0948ac36795f27eb400",
+    "equivalence-contract-0.1.schema.json": "7194cec9b2bf1cce856266b4d5404582930c789a740fcb6da580ce49f8b148c6",
+    "factorization-intent-0.1.schema.json": "ca0ce3e6a6710f4d67031329c7c202dae6ef2e8d2df2e9c428c89b760cd08a59",
+    "factorization-proposal-0.1.schema.json": "8771729a562006edca0c42f40317ac6f341a18179e8933a2a5c90812ae2696a3",
+    "local-manual-write-authorization-0.1.schema.json": "d98e8a6361c46a961feeff95fdd3c7c3cea42c57f555256963af2b163b8cff03",
+    "memory-markdown-profile-0.1.schema.json": "a3adec3734dec5bcf963e518b177609a9329cc1b7431fc70d7d080555696ff0d",
+    "memory-record-0.1.schema.json": "51f088ce8089c002f129c54e82945ea6105cd85be5b279c9f1ef252052d6d284",
+    "persistence-assessment-0.1.schema.json": "1367f937f917172e3222e51bbea1f9e5c9fe08ad043f50380a9b80ebfe7f4f63",
+    "persistence-policy-0.1.schema.json": "526a839e1291ebfda9aa9b0d8f88fbe98739332febbf10d5dcc85f4e998c126a",
+    "private-residence-dry-run-report-0.2.schema.json": "3cce2d96634662589f173273bb26e5ada0e6750d7c33ee4e6a5370ceb76ed5e0",
+    "projection-manifest-0.1.schema.json": "dac05112fb74b4c906e04c127d9850e97f570254774b01a60cf88a2ebcc76cbf",
+    "recomputation-reference-0.1.schema.json": "ea8ceb5e793e2abf031f87eaa3d776fa57a6890552eea19f33665466531aafc1",
+    "route-0.1.schema.json": "fbb747475c03819b87cc26e8182b14ec2918c51fc02c98dc1fddb1d186b6adad",
+    "seed-intent-0.1.schema.json": "c63e8c25e5bfa07089e85eecfacd2827aaf1e0f590358a32b20c532083848980",
+    "transaction-0.1.schema.json": "fb032ee530ea98cc50813606b4cbefe046aa6abc69e87f6f09539b6d7d060ce0"
+  }
+}
