@@ -1,20 +1,21 @@
 from __future__ import annotations
 
-from copy import deepcopy
 from collections import Counter
+from collections.abc import Iterable, Mapping
+from copy import deepcopy
 from dataclasses import dataclass
-import json
-from pathlib import Path
-from typing import Iterable, Mapping, Any
+from typing import Any
 
 from jsonschema import Draft202012Validator
 
 from ..canonical import canonical_json_bytes, sha256_domain
 from ..errors import DryRunValidationError
+from ..schemas import read_schema
 
 _RISK_ORDER = {"LOW":0,"MEDIUM":1,"HIGH":2,"BLOCKED":3}
-_SCHEMA_PATH = Path(__file__).resolve().parents[3] / 'schemas/private-residence-dry-run-report-0.2.schema.json'
-_VALIDATOR=Draft202012Validator(json.loads(_SCHEMA_PATH.read_text()))
+_VALIDATOR = Draft202012Validator(
+    read_schema("private-residence-dry-run-report-0.2.schema.json")
+)
 
 
 def max_risk(a:str,b:str)->str:

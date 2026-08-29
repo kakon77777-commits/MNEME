@@ -1,19 +1,19 @@
 from __future__ import annotations
 
-from copy import deepcopy
-from dataclasses import dataclass
 import json
-from pathlib import Path
 import re
 import unicodedata
+from copy import deepcopy
+from dataclasses import dataclass
+from pathlib import Path
 
 from jsonschema import Draft202012Validator
 
 from .canonical import canonical_json_bytes, sha256_domain
 from .errors import ProfileValidationError
+from .schemas import read_schema
 
-_SCHEMA_PATH = Path(__file__).resolve().parents[2] / "schemas" / "memory-markdown-profile-0.1.schema.json"
-_SCHEMA = json.loads(_SCHEMA_PATH.read_text(encoding="utf-8"))
+_SCHEMA = read_schema("memory-markdown-profile-0.1.schema.json")
 _VALIDATOR = Draft202012Validator(_SCHEMA)
 _WS_RE = re.compile(r"\s+")
 
@@ -50,7 +50,7 @@ class MemoryMarkdownProfile:
     _alias_table: dict[str, SectionRule]
 
     @classmethod
-    def from_dict(cls, raw: dict[str, object]) -> "MemoryMarkdownProfile":
+    def from_dict(cls, raw: dict[str, object]) -> MemoryMarkdownProfile:
         candidate = deepcopy(raw)
         errors = sorted(_VALIDATOR.iter_errors(candidate), key=_error_key)
         if errors:

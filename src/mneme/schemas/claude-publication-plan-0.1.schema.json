@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://evemisslab.com/mneme/schemas/claude-publication-plan-0.1.schema.json",
+  "title": "MNEME ClaudePublicationPlan 0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["publication_plan_version", "plan_id", "projection_ref", "projection_digest", "content_bytes", "content_sha256", "target_ref", "target_preimage_sha256", "not_claimed", "plan_digest"],
+  "properties": {
+    "publication_plan_version": {"const": "mneme.claude-publication-plan/0.1"},
+    "plan_id": {"type": "string", "minLength": 1},
+    "projection_ref": {"type": "string", "minLength": 1},
+    "projection_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "content_bytes": {"type": "integer", "minimum": 0, "maximum": 16000},
+    "content_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "target_ref": {"type": "string", "minLength": 1},
+    "target_preimage_sha256": {
+      "oneOf": [
+        {"type": "null"},
+        {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      ]
+    },
+    "not_claimed": {"const": ["resident_identity", "private_memory_access", "provider_continuity", "autonomous_write_authority", "cognitive_reconstruction", "claude_memory_readback"]},
+    "plan_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

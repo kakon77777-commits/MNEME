@@ -1,23 +1,28 @@
 from __future__ import annotations
 
+from collections import Counter
+from collections.abc import Iterable, Mapping
 from copy import deepcopy
 from dataclasses import dataclass
-from collections import Counter
-import json
-from pathlib import Path
-from typing import Iterable, Mapping, Any
+from typing import Any
 
 from jsonschema import Draft202012Validator
 
 from ..cps.adapter import CpsObservationAdapter
 from ..cps.factorization import FactorizationProposal
-from ..cps.models import EquivalenceContract, PersistenceAssessment, RecomputationReference
+from ..cps.models import (
+    EquivalenceContract,
+    PersistenceAssessment,
+    RecomputationReference,
+)
 from ..cps.seed import CognitiveSeedProposal
 from ..errors import CpsValidationError, DryRunValidationError
+from ..schemas import read_schema
 
-_ROOT = Path(__file__).resolve().parents[3]
-_F_VALIDATOR = Draft202012Validator(json.loads((_ROOT/'schemas/factorization-intent-0.1.schema.json').read_text()))
-_S_VALIDATOR = Draft202012Validator(json.loads((_ROOT/'schemas/seed-intent-0.1.schema.json').read_text()))
+_F_VALIDATOR = Draft202012Validator(
+    read_schema("factorization-intent-0.1.schema.json")
+)
+_S_VALIDATOR = Draft202012Validator(read_schema("seed-intent-0.1.schema.json"))
 
 
 def _validate(validator, raw):

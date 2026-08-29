@@ -1,19 +1,18 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from copy import deepcopy
 from dataclasses import dataclass
-import json
-from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 from jsonschema import Draft202012Validator
 
 from ..canonical import canonical_json_bytes, sha256_domain
 from ..errors import CpsValidationError
+from ..schemas import read_schema
 from .models import PersistenceAssessment
 
-_SCHEMA_PATH = Path(__file__).resolve().parents[3] / "schemas" / "factorization-proposal-0.1.schema.json"
-_SCHEMA = json.loads(_SCHEMA_PATH.read_text(encoding="utf-8"))
+_SCHEMA = read_schema("factorization-proposal-0.1.schema.json")
 _VALIDATOR = Draft202012Validator(_SCHEMA)
 
 
@@ -59,7 +58,7 @@ class FactorizationProposal:
     _raw: dict[str, Any]
 
     @classmethod
-    def from_dict(cls, raw: dict[str, object]) -> "FactorizationProposal":
+    def from_dict(cls, raw: dict[str, object]) -> FactorizationProposal:
         candidate = deepcopy(raw)
         errors = sorted(_VALIDATOR.iter_errors(candidate), key=_error_key)
         if errors:

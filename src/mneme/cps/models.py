@@ -3,17 +3,15 @@ from __future__ import annotations
 from copy import deepcopy
 from dataclasses import dataclass
 from enum import Enum
-import json
-from pathlib import Path
 from typing import Any
 
 from jsonschema import Draft202012Validator
 
 from ..canonical import canonical_json_bytes, sha256_domain
 from ..errors import CpsValidationError
+from ..schemas import read_schema
 
-_SCHEMA_PATH = Path(__file__).resolve().parents[3] / "schemas" / "persistence-assessment-0.1.schema.json"
-_SCHEMA = json.loads(_SCHEMA_PATH.read_text(encoding="utf-8"))
+_SCHEMA = read_schema("persistence-assessment-0.1.schema.json")
 _VALIDATOR = Draft202012Validator(_SCHEMA)
 
 
@@ -76,7 +74,7 @@ class PersistenceAssessment:
     _raw: dict[str, Any]
 
     @classmethod
-    def from_dict(cls, raw: dict[str, object]) -> "PersistenceAssessment":
+    def from_dict(cls, raw: dict[str, object]) -> PersistenceAssessment:
         return cls(_validate(raw))
 
     def to_dict(self) -> dict[str, object]:
@@ -90,10 +88,12 @@ class PersistenceAssessment:
             canonical_json_bytes(payload),
         )
 
-_RECOMPUTATION_SCHEMA_PATH = Path(__file__).resolve().parents[3] / "schemas" / "recomputation-reference-0.1.schema.json"
-_RECOMPUTATION_VALIDATOR = Draft202012Validator(json.loads(_RECOMPUTATION_SCHEMA_PATH.read_text(encoding="utf-8")))
-_EQUIVALENCE_SCHEMA_PATH = Path(__file__).resolve().parents[3] / "schemas" / "equivalence-contract-0.1.schema.json"
-_EQUIVALENCE_VALIDATOR = Draft202012Validator(json.loads(_EQUIVALENCE_SCHEMA_PATH.read_text(encoding="utf-8")))
+_RECOMPUTATION_VALIDATOR = Draft202012Validator(
+    read_schema("recomputation-reference-0.1.schema.json")
+)
+_EQUIVALENCE_VALIDATOR = Draft202012Validator(
+    read_schema("equivalence-contract-0.1.schema.json")
+)
 
 
 def _validate_with(validator: Draft202012Validator, raw: dict[str, object]) -> dict[str, Any]:
@@ -111,7 +111,7 @@ class RecomputationReference:
     _raw: dict[str, Any]
 
     @classmethod
-    def from_dict(cls, raw: dict[str, object]) -> "RecomputationReference":
+    def from_dict(cls, raw: dict[str, object]) -> RecomputationReference:
         return cls(_validate_with(_RECOMPUTATION_VALIDATOR, raw))
 
     def to_dict(self) -> dict[str, object]:
@@ -131,7 +131,7 @@ class EquivalenceContract:
     _raw: dict[str, Any]
 
     @classmethod
-    def from_dict(cls, raw: dict[str, object]) -> "EquivalenceContract":
+    def from_dict(cls, raw: dict[str, object]) -> EquivalenceContract:
         return cls(_validate_with(_EQUIVALENCE_VALIDATOR, raw))
 
     def to_dict(self) -> dict[str, object]:

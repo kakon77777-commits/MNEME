@@ -1,20 +1,18 @@
 from __future__ import annotations
 
+from collections.abc import Iterable, Mapping
 from copy import deepcopy
 from dataclasses import dataclass
-import json
-from pathlib import Path
-from typing import Iterable, Mapping
 
 from jsonschema import Draft202012Validator
 
 from ..canonical import canonical_json_bytes, sha256_domain
 from ..cps.rules import AssessmentContext
 from ..errors import DryRunValidationError
+from ..schemas import read_schema
 from .models import ContextResolution, MappedRecordMetadata
 
-_SCHEMA_PATH = Path(__file__).resolve().parents[3] / "schemas" / "persistence-policy-0.1.schema.json"
-_VALIDATOR = Draft202012Validator(json.loads(_SCHEMA_PATH.read_text(encoding="utf-8")))
+_VALIDATOR = Draft202012Validator(read_schema("persistence-policy-0.1.schema.json"))
 _CONTEXT_FIELDS = (
     "explicit_decision",
     "identity_or_authority_evidence",
@@ -42,7 +40,7 @@ class PersistencePolicy:
     _raw: dict[str, object]
 
     @classmethod
-    def from_dict(cls, raw: dict[str, object]) -> "PersistencePolicy":
+    def from_dict(cls, raw: dict[str, object]) -> PersistencePolicy:
         candidate = deepcopy(raw)
         errors = sorted(_VALIDATOR.iter_errors(candidate), key=_error_key)
         if errors:
