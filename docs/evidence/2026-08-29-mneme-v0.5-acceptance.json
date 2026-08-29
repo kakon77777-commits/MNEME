@@ -2,8 +2,8 @@
   "schema": "mneme.unified-integration-acceptance/0.1",
   "candidate": {
     "branch": "feat/mneme-unified-profile-integration-v0.5",
-    "verified_head": "d9a1e008a50a23ddeaf247a78c3e520ef44dcba7",
-    "verified_tree": "76c090c655a670b692140758fd2587b32c3ffc7a",
+    "verified_head": "9e76df6d512d9052c3436dc99bb11303c98f6178",
+    "verified_tree": "4bc05d7bd26f78d14cb4d9b57dcacf2dce55bb87",
     "package_name": "mneme-memory",
     "package_version": "0.5.0a1",
     "worktree_clean": true,
@@ -31,6 +31,12 @@
     "design_delta_ref": "docs/superpowers/specs/2026-08-29-mneme-unified-profile-integration-v0.5-design-delta-001.md",
     "design_delta_bytes": 2327,
     "design_delta_sha256": "246F3D16A6CF445D6AE4F45B1E1EB870F30C2D8EDD399E66ABD5AAD5E13E9A95",
+    "design_delta_002_ref": "docs/superpowers/specs/2026-08-29-mneme-unified-profile-integration-v0.5-design-delta-002.md",
+    "design_delta_002_bytes": 2695,
+    "design_delta_002_sha256": "58F40959095E237F58F43E9B943DF9723EC4331C3B9A2CDC5AEE828696C19482",
+    "design_delta_003_ref": "docs/superpowers/specs/2026-08-29-mneme-unified-profile-integration-v0.5-design-delta-003.md",
+    "design_delta_003_bytes": 2513,
+    "design_delta_003_sha256": "EDFD3EFC0F4FD4F54211C9EEABC10E5444744EBD6F24158A066C9C5BF9FE7586",
     "plan_ref": "docs/superpowers/plans/2026-08-29-mneme-unified-profile-integration-v0.5.md",
     "plan_bytes": 36072,
     "plan_sha256": "9B26C24266C11D202C073D7E1F9BE35565B407FC7BD0682E3C78AAA2C60BC799"
@@ -41,7 +47,7 @@
       "skipped": 1,
       "failed": 0
     },
-    "full_duration_seconds": 339.69,
+    "full_duration_seconds": 404.70,
     "retained_skip": {
       "test": "tests/test_claude_projection.py::test_symlink_target_is_refused",
       "reason": "windows_symlink_privilege_unavailable",
@@ -54,42 +60,62 @@
       "status": "PASS",
       "profile": "MLF-RM/0.1",
       "bytes": 571,
-      "sha256": "4E89330E83B5F05FDB2CE45826FB7D325118B8E6545CB68B16B90537C48BAD5F"
+      "sha256": "90316C22750BD03D93C1A060C2591C2EEB3654BA551FF0A0DE604A062966DD63"
     },
     "memory_markdown_v01": {
       "status": "PASS",
       "profile": "MNEME-MD/0.1",
       "bytes": 760,
-      "sha256": "B316574E69F3BB2A441C14C2F0C17DFCBCAB604CC147F79FE899E36DF1D4D1D7"
+      "sha256": "955D474009F5BF54D3838CDB30691F9C40F6176146F6783CF6FF67DC8D1B3C01"
     },
     "evemiss_profile_v02": {
       "status": "PASS",
       "profile": "MNEME-MD-EVEMISS/0.2",
       "bytes": 560,
-      "sha256": "4F13206EFBCA31720F90FDC7065D6B624352D216D9360B106B6F6BDFBE87FB42"
+      "sha256": "71A4E6662D2BB6093C255FFF00DE8B9C6A83F3AEAC0014CEE84E6719D65C5EB1"
     },
     "cognitive_persistence": {
       "status": "PASS",
       "profile": "MNEME-CPS/0.1",
       "bytes": 1204,
-      "sha256": "4142F4471499BC9771B53BEF009750618376C42D1C3B3D4AB422625F066CFB0D"
+      "sha256": "765202CBBEB3AD3A884CFDD4A710E3E6CECDEA6982C8C285137D2950B8737718"
     },
     "private_residence_dry_run": {
       "status": "PASS",
       "profile": "MNEME-PRIVATE-RESIDENCE-DRY-RUN/0.2",
       "bytes": 1605,
-      "sha256": "0ED5234051415ECD7C393DEA82428C38D0E8866EE642F0E2410E10784C19FE37"
+      "sha256": null,
+      "observed_run_sha256": "8E4AE256F1E6E19BDC36CD51318B33A1CBB9F7862300C6B29C1C7065C842A249",
+      "byte_reproducibility": "NOT_CLAIMED_CHECKOUT_ROOT_SENSITIVE",
+      "semantic_sha256": "3220d09df2df31d6d3c5bdb06a65ba9573484fc2c512492f52217acacee61464",
+      "root_sensitive_fields": [
+        "bundle_fingerprint"
+      ]
     },
     "claude_global_transition": {
       "status": "PASS",
       "report_version": "mneme.claude-global-acceptance-report/0.1",
-      "bytes": 6513,
-      "sha256": "7B107C104BE4A70E1C28E115B1CD94AD16A6DF8AC781AD3F105B62F131685258"
+      "bytes": 6773,
+      "sha256": null,
+      "observed_run_sha256": "35D7014785CFAC01254827A45485CC5D07C02B5EDC19716534D8DF9687B9DA6A",
+      "byte_reproducibility": "NOT_CLAIMED_SYNTHETIC_ROOT_SENSITIVE",
+      "semantic_sha256": "ceb8183ce8a5d1ed2b6aded326acd20aa9c231ad47cf9cdddc676b4e9f2b3cfa",
+      "root_sensitive_fields": [
+        "artifact_runs[].activation_receipt_digest",
+        "artifact_runs[].import_receipt_digest",
+        "artifact_runs[].projection_receipt_digest",
+        "run_fingerprints[]",
+        "report_digest"
+      ]
     }
   },
   "dry_run_boundaries": {
     "cases_passed": 21,
     "controls_passed": 24,
+    "report_byte_reproducibility": "NOT_CLAIMED_CHECKOUT_ROOT_SENSITIVE",
+    "root_sensitive_fields": [
+      "bundle_fingerprint"
+    ],
     "canonical_store_mutated": false,
     "destructive_actions_performed": false,
     "network_calls": 0,
@@ -104,6 +130,14 @@
     "effect_observation_not_claimed": [
       "native_ffi_containment",
       "os_level_sandbox"
+    ],
+    "report_byte_reproducibility": "NOT_CLAIMED_SYNTHETIC_ROOT_SENSITIVE",
+    "root_sensitive_fields": [
+      "artifact_runs[].activation_receipt_digest",
+      "artifact_runs[].import_receipt_digest",
+      "artifact_runs[].projection_receipt_digest",
+      "run_fingerprints[]",
+      "report_digest"
     ],
     "local_activation_cases": {
       "CGM-023": "NOT_RUN_LOCAL_ACTIVATION_REQUIRED",
@@ -128,13 +162,13 @@
     "claude_memory_readback": "NOT_RUN"
   },
   "archive_wheel": {
-    "source": "git archive d9a1e008a50a23ddeaf247a78c3e520ef44dcba7",
+    "source": "git archive 9e76df6d512d9052c3436dc99bb11303c98f6178",
     "pip_no_index": true,
     "no_dependencies": true,
     "no_build_isolation": true,
     "filename": "mneme_memory-0.5.0a1-py3-none-any.whl",
-    "bytes": 95245,
-    "sha256": "D9E22F30C18CAFA9BAE193DF9D0975AD477A337556C4A9B7FBDA94623B8D2818",
+    "bytes": 95374,
+    "sha256": "586A5BA6C41290F5D0485F1C85A682A80074CC608BAFDB3233657B9AC077DB41",
     "schema_count": 21,
     "schema_mismatches": 0,
     "root_schema_directory_present": false,
@@ -155,6 +189,14 @@
     "diff_check": "PASS"
   },
   "independent_reviews": {
+    "final_fixwave_review_revise": {
+      "verdict": "REVISE",
+      "blocking": 1,
+      "nonblocking": 1,
+      "reviewed_head": "84d7de8aadd948a8d3a8dd8b1ad1711bfebd985d",
+      "reviewed_tree": "e760a83a8a40ad72c61a4b1f115ede8490bc410a",
+      "handoff_sha256": "7107783A48504D6C8B166926B1FD24BDA62436B91C9206B0FB5604E857B66BA4"
+    },
     "final_review_revise": {
       "verdict": "REVISE",
       "blocking": 2,
@@ -182,7 +224,9 @@
     "provider_continuity",
     "native_ffi_containment",
     "os_level_sandbox",
+    "claude_report_cross_root_byte_reproducibility",
+    "dry_run_report_cross_checkout_byte_reproducibility",
     "cross_toolchain_wheel_reproducibility"
   ],
-  "evidence_digest": "d53cc6e5ef6c527a4f23815ee94d145f09f634c31ce64252441e81eef95dc1e9"
+  "evidence_digest": "47583f2450708c11b7a26a3dd04a776516a5b4894a79f5a4932bf143d454cf11"
 }

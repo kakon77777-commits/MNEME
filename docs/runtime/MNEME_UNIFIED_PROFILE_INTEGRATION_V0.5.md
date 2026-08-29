@@ -83,6 +83,13 @@ those fields and declares
 semantic digest after replacing only the declared root-sensitive fields; PASS
 status, cases, effects, and every other field must remain equal.
 
+The complete Private Residence Dry-Run report is likewise not byte-reproducible
+across checkout roots because its private evidence bundle intentionally binds
+the absolute source path, which changes `bundle_fingerprint`. It declares
+`NOT_CLAIMED_CHECKOUT_ROOT_SENSITIVE` in final evidence. Cross-checkout
+comparison replaces only `bundle_fingerprint`; report status, cases, controls,
+report fingerprint, source commit, and every other field must remain equal.
+
 ## Later gates not satisfied here
 
 The candidate does not resolve resident identity or grant private access. A

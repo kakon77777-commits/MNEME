@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+import hashlib
 import json
+import os
 import subprocess
+import sys
+from copy import deepcopy
 from pathlib import Path
 
 from mneme.canonical import canonical_json_bytes, sha256_domain
@@ -11,6 +15,17 @@ INPUT_PINS = ROOT / "docs" / "evidence" / "2026-08-29-mneme-v0.5-input-pins.json
 ACCEPTANCE = ROOT / "docs" / "evidence" / "2026-08-29-mneme-v0.5-acceptance.json"
 WORKFLOW = ROOT / ".github" / "workflows" / "mneme-unified-profile-integration.yml"
 ACCEPTANCE_DOMAIN = b"MNEME-UNIFIED-INTEGRATION-ACCEPTANCE-0.1"
+CLAUDE_SEMANTIC_DOMAIN = b"MNEME-CLAUDE-GLOBAL-SEMANTIC-REPORT-0.1"
+DRY_RUN_SEMANTIC_DOMAIN = (
+    b"MNEME-PRIVATE-RESIDENCE-DRY-RUN-SEMANTIC-REPORT-0.2"
+)
+CLAUDE_ROOT_SENSITIVE_FIELDS = (
+    "artifact_runs[].activation_receipt_digest",
+    "artifact_runs[].import_receipt_digest",
+    "artifact_runs[].projection_receipt_digest",
+    "run_fingerprints[]",
+    "report_digest",
+)
 EXPECTED_PINS = {
     "schema": "mneme.unified-integration-input-pins/0.1",
     "remote_main": {
@@ -39,6 +54,73 @@ def _git(*arguments: str) -> str:
     return result.stdout.strip()
 
 
+def _run_validation(
+    checkout: Path,
+    script: str,
+    arguments: list[str],
+) -> None:
+    environment = os.environ.copy()
+    environment["PYTHONDONTWRITEBYTECODE"] = "1"
+    result = subprocess.run(
+        [sys.executable, "-B", script, *arguments],
+        cwd=checkout,
+        env=environment,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def _clone_pinned_candidate(
+    source_repository: Path,
+    destination: Path,
+    selected_head: str,
+) -> None:
+    cloned = subprocess.run(
+        [
+            "git",
+            "clone",
+            "--no-local",
+            "--no-checkout",
+            str(source_repository),
+            str(destination),
+        ],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert cloned.returncode == 0, cloned.stdout + cloned.stderr
+    checked_out = subprocess.run(
+        ["git", "checkout", "--detach", selected_head],
+        cwd=destination,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert checked_out.returncode == 0, checked_out.stdout + checked_out.stderr
+
+
+def _normalized_claude_report(payload: dict[str, object]) -> dict[str, object]:
+    normalized = deepcopy(payload)
+    for run in normalized["artifact_runs"]:
+        run["activation_receipt_digest"] = "<synthetic-root-sensitive>"
+        run["import_receipt_digest"] = "<synthetic-root-sensitive>"
+        run["projection_receipt_digest"] = "<synthetic-root-sensitive>"
+    normalized["run_fingerprints"] = [
+        "<synthetic-root-sensitive>"
+        for _ in normalized["run_fingerprints"]
+    ]
+    normalized["report_digest"] = "<synthetic-root-sensitive>"
+    return normalized
+
+
+def _normalized_dry_run_report(payload: dict[str, object]) -> dict[str, object]:
+    normalized = deepcopy(payload)
+    normalized["bundle_fingerprint"] = "<checkout-root-sensitive>"
+    return normalized
+
+
 def test_input_pins_bind_exact_git_commit_trees():
     observed = json.loads(INPUT_PINS.read_text(encoding="utf-8"))
 
@@ -64,10 +146,10 @@ def test_final_acceptance_is_digest_bound_and_preserves_nonclaims():
         canonical_json_bytes(payload),
     )
     assert payload["candidate"]["verified_head"] == (
-        "d9a1e008a50a23ddeaf247a78c3e520ef44dcba7"
+        "9e76df6d512d9052c3436dc99bb11303c98f6178"
     )
     assert payload["candidate"]["verified_tree"] == (
-        "76c090c655a670b692140758fd2587b32c3ffc7a"
+        "4bc05d7bd26f78d14cb4d9b57dcacf2dce55bb87"
     )
     assert payload["tests"]["full"] == {
         "passed": 348,
@@ -95,3 +177,104 @@ def test_final_acceptance_is_digest_bound_and_preserves_nonclaims():
     encoded = canonical_json_bytes(payload).decode("utf-8")
     for forbidden in ("C:\\\\Users\\\\", "D:\\\\", "AI_RESIDENCE", "USERPROFILE", "sk-"):
         assert forbidden not in encoded
+
+
+def test_six_acceptance_surfaces_reproduce_from_pinned_candidate(tmp_path):
+    evidence = json.loads(ACCEPTANCE.read_text(encoding="utf-8"))
+    claude_evidence = evidence["acceptance_surfaces"]["claude_global_transition"]
+
+    assert claude_evidence["byte_reproducibility"] == (
+        "NOT_CLAIMED_SYNTHETIC_ROOT_SENSITIVE"
+    )
+    assert tuple(claude_evidence["root_sensitive_fields"]) == (
+        CLAUDE_ROOT_SENSITIVE_FIELDS
+    )
+    assert claude_evidence["sha256"] is None
+
+    common_git_dir = Path(
+        _git("rev-parse", "--path-format=absolute", "--git-common-dir")
+    )
+    source_repository = common_git_dir.parent
+    selected_head = evidence["candidate"]["verified_head"]
+    checkout = tmp_path / "pinned-candidate"
+    _clone_pinned_candidate(source_repository, checkout, selected_head)
+
+    deterministic = {
+        "fresh_memory_core": "validate_fresh_memory_core.py",
+        "memory_markdown_v01": "validate_memory_markdown_profile.py",
+        "evemiss_profile_v02": "validate_memory_markdown_profile_v02.py",
+        "cognitive_persistence": "validate_cognitive_persistence_semantics.py",
+    }
+    for key, script_name in deterministic.items():
+        output = tmp_path / f"{key}.json"
+        _run_validation(
+            checkout,
+            str(Path("scripts") / script_name),
+            ["--output", str(output)],
+        )
+        expected = evidence["acceptance_surfaces"][key]
+        assert output.stat().st_size == expected["bytes"]
+        assert hashlib.sha256(output.read_bytes()).hexdigest().upper() == (
+            expected["sha256"]
+        )
+
+    dry_run_evidence = evidence["acceptance_surfaces"][
+        "private_residence_dry_run"
+    ]
+    assert dry_run_evidence["byte_reproducibility"] == (
+        "NOT_CLAIMED_CHECKOUT_ROOT_SENSITIVE"
+    )
+    assert dry_run_evidence["root_sensitive_fields"] == ["bundle_fingerprint"]
+    assert dry_run_evidence["sha256"] is None
+    second_checkout = tmp_path / "pinned-candidate-second-root"
+    _clone_pinned_candidate(source_repository, second_checkout, selected_head)
+    dry_run_reports: list[dict[str, object]] = []
+    dry_run_hashes: list[str] = []
+    for label, selected_checkout in (("a", checkout), ("b", second_checkout)):
+        output = tmp_path / f"dry-run-{label}.json"
+        _run_validation(
+            selected_checkout,
+            str(Path("scripts") / "validate_private_residence_two_pass_dry_run.py"),
+            ["--output", str(output)],
+        )
+        dry_run_reports.append(json.loads(output.read_text(encoding="utf-8")))
+        dry_run_hashes.append(hashlib.sha256(output.read_bytes()).hexdigest())
+        assert output.stat().st_size == dry_run_evidence["bytes"]
+
+    assert dry_run_hashes[0] != dry_run_hashes[1]
+    normalized_dry_run = tuple(
+        _normalized_dry_run_report(report) for report in dry_run_reports
+    )
+    assert normalized_dry_run[0] == normalized_dry_run[1]
+    dry_run_semantic_sha256 = sha256_domain(
+        DRY_RUN_SEMANTIC_DOMAIN,
+        canonical_json_bytes(normalized_dry_run[0]),
+    )
+    assert dry_run_semantic_sha256 == dry_run_evidence["semantic_sha256"]
+
+    claude_reports: list[dict[str, object]] = []
+    claude_hashes: list[str] = []
+    for label in ("a", "b"):
+        output = tmp_path / f"claude-{label}.json"
+        _run_validation(
+            checkout,
+            str(Path("scripts") / "validate_claude_global_memory.py"),
+            [
+                "--root",
+                str(tmp_path / f"claude-root-{label}"),
+                "--output",
+                str(output),
+            ],
+        )
+        claude_reports.append(json.loads(output.read_text(encoding="utf-8")))
+        claude_hashes.append(hashlib.sha256(output.read_bytes()).hexdigest())
+        assert output.stat().st_size == claude_evidence["bytes"]
+
+    assert claude_hashes[0] != claude_hashes[1]
+    normalized = tuple(_normalized_claude_report(report) for report in claude_reports)
+    assert normalized[0] == normalized[1]
+    semantic_sha256 = sha256_domain(
+        CLAUDE_SEMANTIC_DOMAIN,
+        canonical_json_bytes(normalized[0]),
+    )
+    assert semantic_sha256 == claude_evidence["semantic_sha256"]

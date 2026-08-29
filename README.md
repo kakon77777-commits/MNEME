@@ -185,6 +185,11 @@ therefore declares `NOT_CLAIMED_SYNTHETIC_ROOT_SENSITIVE`; exact whole-report
 SHA-256 is a named-run observation, while cross-root verification compares the
 canonical report after replacing only its declared root-sensitive fields.
 
+Private Residence Dry-Run evidence binds its checkout-local source path inside
+the private bundle, so complete report bytes are also not claimed reproducible
+across checkout roots. Its semantic gate replaces only `bundle_fingerprint`;
+all other report fields remain exact.
+
 ## Verification
 
 Python 3.11+:
@@ -223,6 +228,7 @@ Current work does not implement live LIMEN authorization, real Residence migrati
 - `docs/superpowers/specs/2026-08-29-mneme-unified-profile-integration-v0.5-design.md`
 - `docs/superpowers/specs/2026-08-29-mneme-unified-profile-integration-v0.5-design-delta-001.md`
 - `docs/superpowers/specs/2026-08-29-mneme-unified-profile-integration-v0.5-design-delta-002.md`
+- `docs/superpowers/specs/2026-08-29-mneme-unified-profile-integration-v0.5-design-delta-003.md`
 - `docs/superpowers/plans/2026-08-29-mneme-unified-profile-integration-v0.5.md`
 - `docs/runtime/MNEME_UNIFIED_PROFILE_INTEGRATION_V0.5.md`
 
