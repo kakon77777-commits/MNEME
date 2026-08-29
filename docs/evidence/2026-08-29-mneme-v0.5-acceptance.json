@@ -2,8 +2,8 @@
   "schema": "mneme.unified-integration-acceptance/0.1",
   "candidate": {
     "branch": "feat/mneme-unified-profile-integration-v0.5",
-    "verified_head": "9e76df6d512d9052c3436dc99bb11303c98f6178",
-    "verified_tree": "4bc05d7bd26f78d14cb4d9b57dcacf2dce55bb87",
+    "verified_head": "a8aa6bc7e320a15191a9061848603f38d254e065",
+    "verified_tree": "7a2d387427a3c4f4b03a19fdb86315664c7c1c42",
     "package_name": "mneme-memory",
     "package_version": "0.5.0a1",
     "worktree_clean": true,
@@ -43,11 +43,11 @@
   },
   "tests": {
     "full": {
-      "passed": 348,
+      "passed": 350,
       "skipped": 1,
       "failed": 0
     },
-    "full_duration_seconds": 404.70,
+    "full_duration_seconds": 413.09,
     "retained_skip": {
       "test": "tests/test_claude_projection.py::test_symlink_target_is_refused",
       "reason": "windows_symlink_privilege_unavailable",
@@ -60,34 +60,34 @@
       "status": "PASS",
       "profile": "MLF-RM/0.1",
       "bytes": 571,
-      "sha256": "90316C22750BD03D93C1A060C2591C2EEB3654BA551FF0A0DE604A062966DD63"
+      "sha256": "AEFBEB62E6AC4F821D934FD4878678993258567EF8EA21DB804EB0101D250BE1"
     },
     "memory_markdown_v01": {
       "status": "PASS",
       "profile": "MNEME-MD/0.1",
       "bytes": 760,
-      "sha256": "955D474009F5BF54D3838CDB30691F9C40F6176146F6783CF6FF67DC8D1B3C01"
+      "sha256": "99AED5E0F327FFA7192AE2FB0E3439435FE74C0B2EF5F66B5EE05645448AC9D6"
     },
     "evemiss_profile_v02": {
       "status": "PASS",
       "profile": "MNEME-MD-EVEMISS/0.2",
       "bytes": 560,
-      "sha256": "71A4E6662D2BB6093C255FFF00DE8B9C6A83F3AEAC0014CEE84E6719D65C5EB1"
+      "sha256": "05BF840B1E0BBDDFEA5A46DF478266358A0FE18769159996B0B840F70D752DF7"
     },
     "cognitive_persistence": {
       "status": "PASS",
       "profile": "MNEME-CPS/0.1",
       "bytes": 1204,
-      "sha256": "765202CBBEB3AD3A884CFDD4A710E3E6CECDEA6982C8C285137D2950B8737718"
+      "sha256": "054A384B8036F53CD57917BA438AA1FE08A372604959F9E45BC3B7BC4C84A7B3"
     },
     "private_residence_dry_run": {
       "status": "PASS",
       "profile": "MNEME-PRIVATE-RESIDENCE-DRY-RUN/0.2",
       "bytes": 1605,
       "sha256": null,
-      "observed_run_sha256": "8E4AE256F1E6E19BDC36CD51318B33A1CBB9F7862300C6B29C1C7065C842A249",
+      "observed_run_sha256": "679C0F3B90ACA7E7CC82557B7ADBAB806181CF37EECDD7532FEC473DD70E4F5C",
       "byte_reproducibility": "NOT_CLAIMED_CHECKOUT_ROOT_SENSITIVE",
-      "semantic_sha256": "3220d09df2df31d6d3c5bdb06a65ba9573484fc2c512492f52217acacee61464",
+      "semantic_sha256": "53878a4ebb0666ebfb5a314e5b9e0ade2d1d6ee392e53015fcc789b4c9a62024",
       "root_sensitive_fields": [
         "bundle_fingerprint"
       ]
@@ -97,7 +97,7 @@
       "report_version": "mneme.claude-global-acceptance-report/0.1",
       "bytes": 6773,
       "sha256": null,
-      "observed_run_sha256": "35D7014785CFAC01254827A45485CC5D07C02B5EDC19716534D8DF9687B9DA6A",
+      "observed_run_sha256": "00337EEA88BBF949C74A0C8D2618EC8F0E42C1FCF0787DD7DAAEFC9E6C46546B",
       "byte_reproducibility": "NOT_CLAIMED_SYNTHETIC_ROOT_SENSITIVE",
       "semantic_sha256": "ceb8183ce8a5d1ed2b6aded326acd20aa9c231ad47cf9cdddc676b4e9f2b3cfa",
       "root_sensitive_fields": [
@@ -162,13 +162,13 @@
     "claude_memory_readback": "NOT_RUN"
   },
   "archive_wheel": {
-    "source": "git archive 9e76df6d512d9052c3436dc99bb11303c98f6178",
+    "source": "git archive a8aa6bc7e320a15191a9061848603f38d254e065",
     "pip_no_index": true,
     "no_dependencies": true,
     "no_build_isolation": true,
     "filename": "mneme_memory-0.5.0a1-py3-none-any.whl",
-    "bytes": 95374,
-    "sha256": "586A5BA6C41290F5D0485F1C85A682A80074CC608BAFDB3233657B9AC077DB41",
+    "bytes": 95493,
+    "sha256": "FA7FE45C50F1E0950FF87DA3F0249EB6D14F6A131A94AD00BFADEDFDFA2EB1C5",
     "schema_count": 21,
     "schema_mismatches": 0,
     "root_schema_directory_present": false,
@@ -228,5 +228,5 @@
     "dry_run_report_cross_checkout_byte_reproducibility",
     "cross_toolchain_wheel_reproducibility"
   ],
-  "evidence_digest": "47583f2450708c11b7a26a3dd04a776516a5b4894a79f5a4932bf143d454cf11"
+  "evidence_digest": "469885944ebd4b814237fc4866b7d7e98ba2701b5aa03b0ca10d7a6ec90d30f8"
 }

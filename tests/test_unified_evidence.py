@@ -148,13 +148,13 @@ def test_final_acceptance_is_digest_bound_and_preserves_nonclaims():
         canonical_json_bytes(payload),
     )
     assert payload["candidate"]["verified_head"] == (
-        "9e76df6d512d9052c3436dc99bb11303c98f6178"
+        "a8aa6bc7e320a15191a9061848603f38d254e065"
     )
     assert payload["candidate"]["verified_tree"] == (
-        "4bc05d7bd26f78d14cb4d9b57dcacf2dce55bb87"
+        "7a2d387427a3c4f4b03a19fdb86315664c7c1c42"
     )
     assert payload["tests"]["full"] == {
-        "passed": 348,
+        "passed": 350,
         "skipped": 1,
         "failed": 0,
     }
