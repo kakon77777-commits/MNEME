@@ -185,8 +185,10 @@ python -m pip install -e ".[dev]"
 python -m pytest -q
 python scripts/validate_fresh_memory_core.py --output fresh-memory-core.json
 python scripts/validate_memory_markdown_profile.py --output memory-markdown-profile.json
+python scripts/validate_memory_markdown_profile_v02.py --output memory-markdown-profile-v02.json
 python scripts/validate_cognitive_persistence_semantics.py --output cps.json
 python scripts/validate_private_residence_two_pass_dry_run.py --output private-residence-dry-run.json
+python scripts/validate_claude_global_memory.py --root new-synthetic-root --output claude-global.json
 python -m compileall -q src
 ```
 
@@ -209,12 +211,15 @@ Current work does not implement live LIMEN authorization, real Residence migrati
 - `docs/superpowers/plans/2026-08-28-cognitive-persistence-semantics.md`
 - `docs/superpowers/specs/2026-08-28-private-residence-two-pass-dry-run-design.md`
 - `docs/superpowers/plans/2026-08-28-private-residence-two-pass-dry-run.md`
+- `docs/superpowers/specs/2026-08-29-mneme-unified-profile-integration-v0.5-design.md`
+- `docs/superpowers/plans/2026-08-29-mneme-unified-profile-integration-v0.5.md`
+- `docs/runtime/MNEME_UNIFIED_PROFILE_INTEGRATION_V0.5.md`
 
 ## Repository identity
 
 - Repository: `kakon77777-commits/MNEME`
 - Package: `mneme-memory`
-- Candidate package version: `0.4.0a2`
+- Candidate package version: `0.5.0a1`
 - Canonical memory profile: `MLF-RM/0.1`
 - Markdown compatibility profiles: `MNEME-MD/0.1` + EveMiss `evemiss-residence/0.2`
 - Cognitive persistence semantics: `MNEME-CPS/0.1`

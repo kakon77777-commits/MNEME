@@ -7,7 +7,7 @@ from .markdown_profile import (
     load_builtin_evemiss_profile_v02,
 )
 
-__version__ = "0.4.0a2"
+__version__ = "0.5.0a1"
 
 MappingProfileError = ProfileValidationError
 
