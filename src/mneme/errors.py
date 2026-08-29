@@ -18,6 +18,14 @@ class StoreConflictError(MnemeError, RuntimeError):
     """A store write conflicts with the current canonical head."""
 
 
+class StoreWriterBusyError(StoreConflictError):
+    """Another writer currently holds the store's single-writer lock."""
+
+
+class RecordIdConflictError(StoreConflictError):
+    """A transaction reuses a record ID in canonical history."""
+
+
 class StoreIntegrityError(MnemeError, RuntimeError):
     """Canonical store bytes or causal metadata failed integrity checks."""
 

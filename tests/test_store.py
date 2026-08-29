@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 from mneme.canonical import canonical_json_bytes
-from mneme.errors import StoreConflictError, StoreIntegrityError
+from mneme.errors import RecordIdConflictError, StoreConflictError, StoreIntegrityError
 from mneme.records import MemoryRecord
 from mneme.store import MemoryStore
 from mneme.transactions import TransactionProposal
@@ -87,3 +87,58 @@ def test_mutated_committed_transaction_is_rejected_on_iteration(tmp_path: Path):
     tx_path.write_bytes(canonical_json_bytes(mutated) + b"\n")
     with pytest.raises(StoreIntegrityError):
         list(store.iter_committed_transactions())
+
+
+def test_existing_record_id_cannot_be_reused(tmp_path: Path):
+    store = MemoryStore(tmp_path / "memory.mlfdir")
+    first = store.commit(
+        TransactionProposal.from_dict(
+            transaction_dict(transaction_id="tx-first", record_id="rec-shared")
+        )
+    )
+    changed = transaction_dict(
+        transaction_id="tx-second",
+        expected_head=first.new_head,
+        record_id="rec-shared",
+    )
+    changed["records"][0]["content"]["text"] = "Conflicting content."
+    changed["record_digests"] = [
+        MemoryRecord.from_dict(changed["records"][0]).digest()
+    ]
+
+    proposal = TransactionProposal.from_dict(changed)
+    with pytest.raises(RecordIdConflictError, match="record_id"):
+        store.validate_record_id_population(proposal)
+    with pytest.raises(RecordIdConflictError, match="record_id"):
+        store.commit(proposal)
+
+    assert len(list(store.iter_committed_records())) == 1
+    assert len(tuple((store.root / "transactions" / "receipts").glob("*.json"))) == 1
+
+
+def test_duplicate_record_id_inside_one_transaction_is_rejected(tmp_path: Path):
+    first = record("rec-duplicate")
+    second = deepcopy(first)
+    second["content"]["text"] = "Second conflicting body."
+    proposal = TransactionProposal.from_dict(
+        {
+            "transaction_version": "mneme.transaction/0.1",
+            "transaction_id": "tx-duplicate",
+            "expected_source_head": "GENESIS",
+            "declared_record_count": 2,
+            "record_digests": [
+                MemoryRecord.from_dict(first).digest(),
+                MemoryRecord.from_dict(second).digest(),
+            ],
+            "records": [first, second],
+            "authority_ref": "synthetic-authority:test",
+            "commit_marker": "MNEME_COMMIT/0.1",
+        }
+    )
+
+    with pytest.raises(RecordIdConflictError, match="record_id"):
+        MemoryStore(tmp_path / "memory.mlfdir").commit(proposal)
+
+    transaction_root = tmp_path / "memory.mlfdir" / "transactions"
+    assert not tuple((transaction_root / "committed").glob("*.json"))
+    assert not tuple((transaction_root / "receipts").glob("*.json"))

@@ -1,16 +1,22 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
 import json
 import os
-from pathlib import Path
 import tempfile
-from typing import Iterator
+from collections import Counter
+from collections.abc import Iterator
+from dataclasses import dataclass, replace
+from pathlib import Path
 
 from .canonical import canonical_json_bytes, sha256_domain
-from .errors import StoreConflictError, StoreIntegrityError, TransactionValidationError
+from .errors import (
+    RecordIdConflictError,
+    StoreConflictError,
+    StoreIntegrityError,
+    TransactionValidationError,
+)
 from .transactions import TransactionProposal
-
+from .writer_lock import StoreWriterLock
 
 _HEAD_DOMAIN = b"MNEME-HEAD-0.1"
 _RECEIPT_VERSION = "mneme.commit-receipt/0.1"
@@ -38,8 +44,14 @@ class MemoryStore:
         self._committed = self.root / "transactions" / "committed"
         self._receipts = self.root / "transactions" / "receipts"
         self._head_path = self.root / "HEAD"
+        self._writer_lock_path = self.root / ".writer.lock"
 
     def initialize(self) -> None:
+        self.root.mkdir(parents=True, exist_ok=True)
+        with StoreWriterLock(self._writer_lock_path):
+            self._initialize_unlocked()
+
+    def _initialize_unlocked(self) -> None:
         self._committed.mkdir(parents=True, exist_ok=True)
         self._receipts.mkdir(parents=True, exist_ok=True)
         if not self._head_path.exists():
@@ -64,38 +76,67 @@ class MemoryStore:
         return value
 
     def commit(self, tx: TransactionProposal) -> CommitReceipt:
-        self.initialize()
-        tx_digest = tx.digest()
-        tx_path = self._committed / f"{tx_digest}.json"
-        receipt_path = self._receipts / f"{tx_digest}.json"
-        canonical_tx = canonical_json_bytes(tx.to_dict()) + b"\n"
+        self.root.mkdir(parents=True, exist_ok=True)
+        with StoreWriterLock(self._writer_lock_path):
+            self._initialize_unlocked()
+            tx_digest = tx.digest()
+            tx_path = self._committed / f"{tx_digest}.json"
+            receipt_path = self._receipts / f"{tx_digest}.json"
+            canonical_tx = canonical_json_bytes(tx.to_dict()) + b"\n"
 
-        if tx_path.exists() or receipt_path.exists():
-            return self._verify_existing_replay(tx, canonical_tx, tx_path, receipt_path)
+            if tx_path.exists() or receipt_path.exists():
+                return self._verify_existing_replay(tx, canonical_tx, tx_path, receipt_path)
 
-        current_head = self.head()
-        try:
-            tx.validate_for_head(current_head)
-        except TransactionValidationError as exc:
-            raise StoreConflictError(str(exc)) from exc
+            current_head = self.head()
+            try:
+                tx.validate_for_head(current_head)
+            except TransactionValidationError as exc:
+                raise StoreConflictError(str(exc)) from exc
+            self._validate_record_id_population_unlocked(tx)
 
-        new_head = _next_head(current_head, tx_digest)
-        receipt = CommitReceipt(tx_digest, current_head, new_head)
-        canonical_receipt = canonical_json_bytes(receipt.to_dict()) + b"\n"
+            new_head = _next_head(current_head, tx_digest)
+            receipt = CommitReceipt(tx_digest, current_head, new_head)
+            canonical_receipt = canonical_json_bytes(receipt.to_dict()) + b"\n"
 
-        self._publish_immutable(tx_path, canonical_tx)
-        try:
+            self._publish_immutable(tx_path, canonical_tx)
             self._publish_immutable(receipt_path, canonical_receipt)
-        except Exception:
-            raise
 
-        if self.head() != current_head:
-            raise StoreConflictError("HEAD changed during commit")
-        self._atomic_write_head(new_head)
-        return receipt
+            if self.head() != current_head:
+                raise StoreConflictError("HEAD changed during commit")
+            self._atomic_write_head(new_head)
+            if self.head() != new_head:
+                raise StoreIntegrityError("HEAD readback mismatch after commit")
+            committed = list(self._iter_committed_transactions_unlocked())
+            if not committed or committed[-1] != tx.to_dict():
+                raise StoreIntegrityError("committed transaction is not reachable from HEAD")
+            stored_receipt = self._load_receipt(receipt_path)
+            if stored_receipt != receipt:
+                raise StoreIntegrityError("receipt readback mismatch after commit")
+            return receipt
 
     def iter_committed_transactions(self) -> Iterator[dict[str, object]]:
         self.initialize()
+        yield from self._iter_committed_transactions_unlocked()
+
+    def verify_current_transaction(
+        self,
+        tx: TransactionProposal,
+        receipt: CommitReceipt,
+    ) -> bool:
+        if not self.root.exists() or not self._head_path.exists():
+            raise StoreIntegrityError("committed store evidence is unavailable")
+        before = self.head()
+        if before != receipt.new_head:
+            raise StoreIntegrityError("commit receipt is not the current head")
+        reachable = list(self._iter_committed_transactions_unlocked())
+        after = self.head()
+        if after != before:
+            raise StoreIntegrityError("HEAD changed during committed readback")
+        if not reachable or reachable[-1] != tx.to_dict():
+            raise StoreIntegrityError("current transaction readback mismatch")
+        return True
+
+    def _iter_committed_transactions_unlocked(self) -> Iterator[dict[str, object]]:
         target_head = self.head()
         if target_head == "GENESIS":
             return
@@ -127,10 +168,38 @@ class MemoryStore:
             tx_path = self._committed / f"{receipt.transaction_digest}.json"
             yield self._load_transaction(tx_path, expected_digest=receipt.transaction_digest)
 
+    def validate_record_id_population(self, tx: TransactionProposal) -> None:
+        self.root.mkdir(parents=True, exist_ok=True)
+        with StoreWriterLock(self._writer_lock_path):
+            self._initialize_unlocked()
+            self._validate_record_id_population_unlocked(tx)
+
+    def _validate_record_id_population_unlocked(self, tx: TransactionProposal) -> None:
+        proposed_ids = [record["record_id"] for record in tx.to_dict()["records"]]
+        duplicate_ids = {
+            record_id for record_id, count in Counter(proposed_ids).items() if count > 1
+        }
+        if duplicate_ids:
+            joined = ", ".join(sorted(duplicate_ids))
+            raise RecordIdConflictError(f"duplicate record_id in transaction: {joined}")
+
+        existing_ids = {
+            record.to_dict()["record_id"]
+            for record in self._iter_committed_records_unlocked()
+        }
+        conflicting_ids = existing_ids.intersection(proposed_ids)
+        if conflicting_ids:
+            joined = ", ".join(sorted(conflicting_ids))
+            raise RecordIdConflictError(f"record_id already committed: {joined}")
+
     def iter_committed_records(self):
+        self.initialize()
+        yield from self._iter_committed_records_unlocked()
+
+    def _iter_committed_records_unlocked(self):
         from .records import MemoryRecord
 
-        for tx in self.iter_committed_transactions():
+        for tx in self._iter_committed_transactions_unlocked():
             for raw in tx["records"]:
                 yield MemoryRecord.from_dict(raw)
 
