@@ -1,0 +1,12 @@
+{
+  "schema": "mneme.unified-integration-input-pins/0.1",
+  "remote_main": {
+    "commit": "c21546a263920e0f80701696e1857c203917d701",
+    "tree": "5ad5725ca685df334110b257e4004d9274e35674"
+  },
+  "claude_candidate": {
+    "commit": "89bb1509f2bb96c4067d12c15094adacc2512b67",
+    "tree": "0fcac15cbccdde61013b8dfa6938ed19ca161ef8",
+    "acceptance_sha256": "50E7C5E999DE8BEAF80FF7B45856750CD9B398E28FC01F2BE279BB4185EADCCF"
+  }
+}

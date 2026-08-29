@@ -1,0 +1,51 @@
+from __future__ import annotations
+
+import json
+import subprocess
+from pathlib import Path
+
+ROOT = Path(__file__).parents[1]
+INPUT_PINS = ROOT / "docs" / "evidence" / "2026-08-29-mneme-v0.5-input-pins.json"
+WORKFLOW = ROOT / ".github" / "workflows" / "mneme-unified-profile-integration.yml"
+EXPECTED_PINS = {
+    "schema": "mneme.unified-integration-input-pins/0.1",
+    "remote_main": {
+        "commit": "c21546a263920e0f80701696e1857c203917d701",
+        "tree": "5ad5725ca685df334110b257e4004d9274e35674",
+    },
+    "claude_candidate": {
+        "commit": "89bb1509f2bb96c4067d12c15094adacc2512b67",
+        "tree": "0fcac15cbccdde61013b8dfa6938ed19ca161ef8",
+        "acceptance_sha256": (
+            "50E7C5E999DE8BEAF80FF7B45856750CD9B398E28FC01F2BE279BB4185EADCCF"
+        ),
+    },
+}
+
+
+def _git(*arguments: str) -> str:
+    result = subprocess.run(
+        ["git", *arguments],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    return result.stdout.strip()
+
+
+def test_input_pins_bind_exact_git_commit_trees():
+    observed = json.loads(INPUT_PINS.read_text(encoding="utf-8"))
+
+    assert observed == EXPECTED_PINS
+    for label in ("remote_main", "claude_candidate"):
+        pin = observed[label]
+        assert _git("cat-file", "-t", pin["commit"]) == "commit"
+        assert _git("rev-parse", f"{pin['commit']}^{{tree}}") == pin["tree"]
+
+
+def test_combined_ci_fetches_history_required_by_git_object_pins():
+    text = WORKFLOW.read_text(encoding="utf-8")
+
+    assert "fetch-depth: 0" in text
