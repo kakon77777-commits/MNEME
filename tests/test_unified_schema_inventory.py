@@ -31,6 +31,8 @@ ROOT = Path(__file__).parents[1]
 
 
 def test_unified_schema_inventory_is_one_package_resource_set():
+    from mneme.schemas import schema_names
+
     observed = {
         item.name
         for item in files("mneme.schemas").iterdir()
@@ -38,6 +40,7 @@ def test_unified_schema_inventory_is_one_package_resource_set():
     }
 
     assert observed == EXPECTED_SCHEMA_NAMES
+    assert set(schema_names()) == EXPECTED_SCHEMA_NAMES
     assert not (ROOT / "schemas").exists()
 
 
