@@ -40,10 +40,25 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Fetch pinned Claude candidate
-        run: >-
-          git fetch --no-tags origin
-          refs/heads/feat/claude-global-memory-transition-v0.1:refs/remotes/origin/feat/claude-global-memory-transition-v0.1
+      - name: Fetch pinned evidence history
+        shell: python
+        run: |
+          import subprocess
+
+          command = ["git", "fetch", "--no-tags"]
+          shallow = subprocess.check_output([
+              "git",
+              "rev-parse",
+              "--is-shallow-repository",
+          ], text=True).strip()
+          if shallow == "true":
+              command.append("--unshallow")
+          command.extend([
+              "origin",
+              "refs/heads/main:refs/heads/evidence-main",
+              "refs/heads/feat/claude-global-memory-transition-v0.1:refs/heads/evidence-claude-candidate",
+          ])
+          subprocess.check_call(command)
       - name: Set up Python
         uses: actions/setup-python@v5
         with:

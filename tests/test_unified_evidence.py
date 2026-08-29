@@ -14,6 +14,13 @@ ROOT = Path(__file__).parents[1]
 INPUT_PINS = ROOT / "docs" / "evidence" / "2026-08-29-mneme-v0.5-input-pins.json"
 ACCEPTANCE = ROOT / "docs" / "evidence" / "2026-08-29-mneme-v0.5-acceptance.json"
 WORKFLOW = ROOT / ".github" / "workflows" / "mneme-unified-profile-integration.yml"
+PINNED_HISTORY_WORKFLOWS = (
+    WORKFLOW,
+    ROOT / ".github" / "workflows" / "fresh-memory-core.yml",
+    ROOT / ".github" / "workflows" / "memory-markdown-profile.yml",
+    ROOT / ".github" / "workflows" / "cognitive-persistence-semantics.yml",
+    ROOT / ".github" / "workflows" / "private-residence-two-pass-dry-run.yml",
+)
 ACCEPTANCE_DOMAIN = b"MNEME-UNIFIED-INTEGRATION-ACCEPTANCE-0.1"
 CLAUDE_SEMANTIC_DOMAIN = b"MNEME-CLAUDE-GLOBAL-SEMANTIC-REPORT-0.1"
 DRY_RUN_SEMANTIC_DOMAIN = (
@@ -132,11 +139,16 @@ def test_input_pins_bind_exact_git_commit_trees():
 
 
 def test_combined_ci_fetches_history_required_by_git_object_pins():
-    text = WORKFLOW.read_text(encoding="utf-8")
-
-    assert "fetch-depth: 0" in text
-    assert "name: Fetch pinned Claude candidate" in text
-    assert "feat/claude-global-memory-transition-v0.1" in text
+    for workflow in PINNED_HISTORY_WORKFLOWS:
+        text = workflow.read_text(encoding="utf-8")
+        assert "fetch-depth: 0" in text, workflow.name
+        assert "name: Fetch pinned evidence history" in text, workflow.name
+        assert 'command.append("--unshallow")' in text, workflow.name
+        assert "refs/heads/main:refs/heads/evidence-main" in text, workflow.name
+        assert (
+            "refs/heads/feat/claude-global-memory-transition-v0.1:"
+            "refs/heads/evidence-claude-candidate"
+        ) in text, workflow.name
 
 
 def test_final_acceptance_is_digest_bound_and_preserves_nonclaims():
